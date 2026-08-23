@@ -25,7 +25,7 @@ fixtures/thumbnails/maps/
 ## Règles
 
 - Formats : `.jpg` / `.jpeg` / `.png` / `.webp`
-- Idéalement **16:9** (le générateur crop en 1280×720)
+- Idéalement **16:9** (le générateur crop en 1920×1080)
 - Plusieurs images par map → une est choisie **au hasard** (et peut varier entre les 3 variantes A/B)
 - Nom du dossier = nom de map CSDM (`de_nuke`, `de_mirage`, …)
 

@@ -14,14 +14,16 @@ import {
   resolveKillsDeaths,
 } from "./utils.js";
 
-const W = 1280;
-const H = 720;
+const W = 1920;
+const H = 1080;
+/** Layout scale vs legacy 1280×720 canvas. */
+const S = W / 1280;
 /** Horizontal center for the text column (right of the player cutout). */
-const TEXT_X = 900;
+const TEXT_X = Math.round(900 * S);
 /** Player cutout fills most of the left side without covering the text block. */
 const PLAYER_WIDTH_RATIO = 0.54;
 const PLAYER_HEIGHT_RATIO = 1;
-const PLAYER_LEFT = 8;
+const PLAYER_LEFT = Math.round(8 * S);
 /** Large watermark behind the player — left side of the frame (see POV thumbnail refs). */
 const TEAM_LOGO_SIZE_RATIO = 1.05;
 const TEAM_LOGO_OPACITY = 0.4;
@@ -220,10 +222,11 @@ function compositeThumbnail(bgBuf, layers) {
     .toBuffer();
 }
 
-function textShadowFilter(id, dx = 4, dy = 4) {
+function textShadowFilter(id, dx = Math.round(4 * S), dy = Math.round(4 * S)) {
+  const blur = Math.round(2 * S);
   return `
     <filter id="${id}" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="${dx}" dy="${dy}" stdDeviation="2" flood-color="#000" flood-opacity="0.85"/>
+      <feDropShadow dx="${dx}" dy="${dy}" stdDeviation="${blur}" flood-color="#000" flood-opacity="0.85"/>
     </filter>`;
 }
 
@@ -271,16 +274,16 @@ function svgStyleGoldKills({ playerName, score, ratingLabel, mapLabel, matchup }
     </linearGradient>
   </defs>
   <g filter="url(#s)" font-family="Impact, Arial Black, sans-serif" font-weight="900">
-    <text x="${TEXT_X}" y="${hasMatchup ? 170 : 210}" text-anchor="middle" fill="url(#gold)" font-size="${hasMatchup ? 150 : 190}" stroke="#1a1200" stroke-width="12" paint-order="stroke fill">${name}</text>
-    <text x="${TEXT_X}" y="${hasMatchup ? 300 : 360}" text-anchor="middle" font-size="${hasMatchup ? 120 : 148}" stroke="#1a0000" stroke-width="10" paint-order="stroke fill">
+    <text x="${TEXT_X}" y="${hasMatchup ? Math.round(170 * S) : Math.round(210 * S)}" text-anchor="middle" fill="url(#gold)" font-size="${hasMatchup ? Math.round(150 * S) : Math.round(190 * S)}" stroke="#1a1200" stroke-width="${Math.round(12 * S)}" paint-order="stroke fill">${name}</text>
+    <text x="${TEXT_X}" y="${hasMatchup ? Math.round(300 * S) : Math.round(360 * S)}" text-anchor="middle" font-size="${hasMatchup ? Math.round(120 * S) : Math.round(148 * S)}" stroke="#1a0000" stroke-width="${Math.round(10 * S)}" paint-order="stroke fill">
       <tspan fill="#ff2a2a">${kills}</tspan>
       <tspan fill="#ffffff">${second}</tspan>
     </text>
-    <text x="${TEXT_X}" y="${hasMatchup ? 390 : 460}" text-anchor="middle" fill="#ffffff" font-size="${hasMatchup ? 72 : 92}" stroke="#000" stroke-width="8" paint-order="stroke fill">${escapeXml(ratingLabel)}</text>
-    <text x="${TEXT_X}" y="${hasMatchup ? 480 : 560}" text-anchor="middle" fill="#ffffff" font-size="${hasMatchup ? 58 : 72}" stroke="#000" stroke-width="8" paint-order="stroke fill">${escapeXml(mapLabel.toUpperCase())}</text>
+    <text x="${TEXT_X}" y="${hasMatchup ? Math.round(390 * S) : Math.round(460 * S)}" text-anchor="middle" fill="#ffffff" font-size="${hasMatchup ? Math.round(72 * S) : Math.round(92 * S)}" stroke="#000" stroke-width="${Math.round(8 * S)}" paint-order="stroke fill">${escapeXml(ratingLabel)}</text>
+    <text x="${TEXT_X}" y="${hasMatchup ? Math.round(480 * S) : Math.round(560 * S)}" text-anchor="middle" fill="#ffffff" font-size="${hasMatchup ? Math.round(58 * S) : Math.round(72 * S)}" stroke="#000" stroke-width="${Math.round(8 * S)}" paint-order="stroke fill">${escapeXml(mapLabel.toUpperCase())}</text>
     ${
       hasMatchup
-        ? `<text x="${TEXT_X}" y="580" text-anchor="middle" fill="#f5c518" font-size="52" stroke="#000" stroke-width="7" paint-order="stroke fill">${escapeXml(matchup)}</text>`
+        ? `<text x="${TEXT_X}" y="${Math.round(580 * S)}" text-anchor="middle" fill="#f5c518" font-size="${Math.round(52 * S)}" stroke="#000" stroke-width="${Math.round(7 * S)}" paint-order="stroke fill">${escapeXml(matchup)}</text>`
         : ""
     }
   </g>
@@ -295,16 +298,16 @@ function svgStyleStack({ playerName, score, ratingLabel, mapLabel, matchup }) {
   const hasMatchup = Boolean(matchup);
   return Buffer.from(`
 <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
-  <defs>${textShadowFilter("s", 3, 3)}</defs>
+  <defs>${textShadowFilter("s", Math.round(3 * S), Math.round(3 * S))}</defs>
   <g filter="url(#s)" font-family="Arial Black, Impact, sans-serif" font-weight="900" fill="#fff" stroke="#000"
-     stroke-width="10" paint-order="stroke fill">
-    <text x="${TEXT_X}" y="${hasMatchup ? 150 : 180}" text-anchor="middle" font-size="${hasMatchup ? 120 : 148}">${name}</text>
-    <text x="${TEXT_X}" y="${hasMatchup ? 270 : 320}" text-anchor="middle" font-size="${hasMatchup ? 100 : 124}">${escapeXml(score)}</text>
-    <text x="${TEXT_X}" y="${hasMatchup ? 360 : 420}" text-anchor="middle" font-size="${hasMatchup ? 56 : 68}" fill="#f5c518" stroke="#000">${escapeXml(ratingLabel)}</text>
-    <text x="${TEXT_X}" y="${hasMatchup ? 450 : 520}" text-anchor="middle" font-size="${hasMatchup ? 52 : 64}" fill="#f5c518" stroke="#000">${escapeXml(mapLabel)} POV</text>
+     stroke-width="${Math.round(10 * S)}" paint-order="stroke fill">
+    <text x="${TEXT_X}" y="${hasMatchup ? Math.round(150 * S) : Math.round(180 * S)}" text-anchor="middle" font-size="${hasMatchup ? Math.round(120 * S) : Math.round(148 * S)}">${name}</text>
+    <text x="${TEXT_X}" y="${hasMatchup ? Math.round(270 * S) : Math.round(320 * S)}" text-anchor="middle" font-size="${hasMatchup ? Math.round(100 * S) : Math.round(124 * S)}">${escapeXml(score)}</text>
+    <text x="${TEXT_X}" y="${hasMatchup ? Math.round(360 * S) : Math.round(420 * S)}" text-anchor="middle" font-size="${hasMatchup ? Math.round(56 * S) : Math.round(68 * S)}" fill="#f5c518" stroke="#000">${escapeXml(ratingLabel)}</text>
+    <text x="${TEXT_X}" y="${hasMatchup ? Math.round(450 * S) : Math.round(520 * S)}" text-anchor="middle" font-size="${hasMatchup ? Math.round(52 * S) : Math.round(64 * S)}" fill="#f5c518" stroke="#000">${escapeXml(mapLabel)} POV</text>
     ${
       hasMatchup
-        ? `<text x="${TEXT_X}" y="550" text-anchor="middle" font-size="48" fill="#f5c518" stroke="#000">${escapeXml(matchup)}</text>`
+        ? `<text x="${TEXT_X}" y="${Math.round(550 * S)}" text-anchor="middle" font-size="${Math.round(48 * S)}" fill="#f5c518" stroke="#000">${escapeXml(matchup)}</text>`
         : ""
     }
   </g>
@@ -319,16 +322,16 @@ function svgStyleItalic({ playerName, score, ratingLabel, mapLabel, matchup }) {
   const hasMatchup = Boolean(matchup);
   return Buffer.from(`
 <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
-  <defs>${textShadowFilter("s", 5, 5)}</defs>
+  <defs>${textShadowFilter("s", Math.round(5 * S), Math.round(5 * S))}</defs>
   <g filter="url(#s)" font-family="Impact, Arial Black, sans-serif" font-style="italic" font-weight="900"
-     fill="#ffffff" stroke="#000000" stroke-width="14" paint-order="stroke fill">
-    <text x="${TEXT_X}" y="${hasMatchup ? 180 : 220}" text-anchor="middle" font-size="${hasMatchup ? 140 : 168}">${name}</text>
-    <text x="${TEXT_X}" y="${hasMatchup ? 320 : 380}" text-anchor="middle" font-size="${hasMatchup ? 110 : 136}">${escapeXml(score)}</text>
-    <text x="${TEXT_X}" y="${hasMatchup ? 410 : 490}" text-anchor="middle" font-size="${hasMatchup ? 60 : 72}" font-style="normal">${escapeXml(ratingLabel)}</text>
-    <text x="${TEXT_X}" y="${hasMatchup ? 500 : 590}" text-anchor="middle" font-size="${hasMatchup ? 48 : 56}" font-style="normal">${escapeXml(mapLabel.toUpperCase())} POV</text>
+     fill="#ffffff" stroke="#000000" stroke-width="${Math.round(14 * S)}" paint-order="stroke fill">
+    <text x="${TEXT_X}" y="${hasMatchup ? Math.round(180 * S) : Math.round(220 * S)}" text-anchor="middle" font-size="${hasMatchup ? Math.round(140 * S) : Math.round(168 * S)}">${name}</text>
+    <text x="${TEXT_X}" y="${hasMatchup ? Math.round(320 * S) : Math.round(380 * S)}" text-anchor="middle" font-size="${hasMatchup ? Math.round(110 * S) : Math.round(136 * S)}">${escapeXml(score)}</text>
+    <text x="${TEXT_X}" y="${hasMatchup ? Math.round(410 * S) : Math.round(490 * S)}" text-anchor="middle" font-size="${hasMatchup ? Math.round(60 * S) : Math.round(72 * S)}" font-style="normal">${escapeXml(ratingLabel)}</text>
+    <text x="${TEXT_X}" y="${hasMatchup ? Math.round(500 * S) : Math.round(590 * S)}" text-anchor="middle" font-size="${hasMatchup ? Math.round(48 * S) : Math.round(56 * S)}" font-style="normal">${escapeXml(mapLabel.toUpperCase())} POV</text>
     ${
       hasMatchup
-        ? `<text x="${TEXT_X}" y="590" text-anchor="middle" font-size="46" font-style="normal" fill="#f5c518">${escapeXml(matchup)}</text>`
+        ? `<text x="${TEXT_X}" y="${Math.round(590 * S)}" text-anchor="middle" font-size="${Math.round(46 * S)}" font-style="normal" fill="#f5c518">${escapeXml(matchup)}</text>`
         : ""
     }
   </g>
