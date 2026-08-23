@@ -18,6 +18,10 @@ const W = 1280;
 const H = 720;
 /** Horizontal center for the text column (right of the player cutout). */
 const TEXT_X = 900;
+/** Player cutout fills most of the left side without covering the text block. */
+const PLAYER_WIDTH_RATIO = 0.54;
+const PLAYER_HEIGHT_RATIO = 1;
+const PLAYER_LEFT = 8;
 const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 
 /**
@@ -70,12 +74,12 @@ async function prepareBackground(imagePath, mood) {
 }
 
 /**
- * Player cutout scaled to left third.
+ * Player cutout scaled on the left side.
  * @param {string} playerPhotoPath
  */
 async function preparePlayerCutout(playerPhotoPath) {
-  const targetH = Math.round(H * 0.95);
-  const targetW = Math.round(W * 0.42);
+  const targetH = Math.round(H * PLAYER_HEIGHT_RATIO);
+  const targetW = Math.round(W * PLAYER_WIDTH_RATIO);
   return sharp(playerPhotoPath)
     .rotate()
     .resize(targetW, targetH, {
@@ -235,8 +239,8 @@ export async function generateThumbnails(options) {
 
   const playerBuf = await preparePlayerCutout(playerPhotoPath);
   const playerMeta = await sharp(playerBuf).metadata();
-  const playerLeft = 16;
-  const playerTop = Math.max(0, H - (playerMeta.height ?? Math.round(H * 0.95)));
+  const playerLeft = PLAYER_LEFT;
+  const playerTop = Math.max(0, H - (playerMeta.height ?? Math.round(H * PLAYER_HEIGHT_RATIO)));
   const variants = [];
 
   for (let i = 0; i < STYLES.length; i++) {
