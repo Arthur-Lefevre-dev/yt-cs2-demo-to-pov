@@ -73,8 +73,9 @@ describe("buildCsdmVideoConfig", () => {
     assert.equal(config.sequences.length, 1);
 
     const sequence = config.sequences[0];
-    assert.equal(sequence.startTick, 1000);
-    assert.equal(sequence.endTick, 2500);
+    // 10s skip @ 64 tick = 640; freeze ends at 1600 → start at freeze_end.
+    assert.equal(sequence.startTick, 1600);
+    assert.equal(sequence.endTick, 2692);
     assert.equal(sequence.playerVoicesEnabled, true);
     assert.deepEqual(sequence.playerCameras, [
       { tick: 1601, playerSteamId: "111", playerName: "Alpha" },
@@ -95,6 +96,16 @@ describe("buildCsdmVideoConfig", () => {
     assert.equal(voices["444"], false);
   });
 
+  it("can disable freeze skip", () => {
+    const config = buildCsdmVideoConfig(parsed, {
+      steamId: "111",
+      outputFolderPath: "C:\\out",
+      rounds: [1],
+      skipFreezeSeconds: 0,
+    });
+    assert.equal(config.sequences[0].startTick, 1000);
+  });
+
   it("follows side switch team roster on later rounds", () => {
     const config = buildCsdmVideoConfig(parsed, {
       steamId: "111",
@@ -107,7 +118,7 @@ describe("buildCsdmVideoConfig", () => {
     assert.equal(voices["111"], true);
     assert.equal(voices["333"], true);
     assert.equal(voices["222"], false);
-    assert.equal(config.sequences[0].endTick, 12000);
+    assert.equal(config.sequences[0].endTick, 12192);
   });
 
   it("strips _meta for the on-disk CSDM file", () => {

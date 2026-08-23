@@ -227,8 +227,17 @@ export function parseDemo(demoPath, options = {}) {
       const teamSteamIds = playersAliveOnSide(sampleRows, side);
       const deathTick = firstDeathTick(officialDeaths, player.steam_id, round.start_tick, round.end_tick);
       const clipEndTick = deathTick ?? round.end_tick;
+      // Match CSDM bridge: skip first ~10s of freeze / buy time in duration estimates.
+      const freezeSkipTicks = Math.round(10 * tickrate);
+      const clipStartTick = Math.min(
+        round.start_tick + freezeSkipTicks,
+        Math.max(round.start_tick, round.freeze_end_tick),
+      );
+      const endPaddingTicks = Math.round(3 * tickrate);
       const estimatedSeconds =
-        tickrate > 0 ? Number(((clipEndTick - round.start_tick) / tickrate).toFixed(2)) : null;
+        tickrate > 0
+          ? Number(((clipEndTick + endPaddingTicks - clipStartTick) / tickrate).toFixed(2))
+          : null;
       const survived = deathTick === null;
       const highlight = analyzeRoundHighlight({
         deaths: officialDeaths,

@@ -31,18 +31,19 @@ pub fn is_dev_build() -> bool {
     cfg!(debug_assertions)
 }
 
-/// User-facing folder: `%USERPROFILE%\Documents\CS2 POV Generator`
+/// User-facing folder (no spaces — CSDM `.cmd` / batch breaks on `%*`).
+/// `%USERPROFILE%\Documents\CS2-POV-Generator`
 pub fn user_app_root() -> PathBuf {
     let home = env::var_os("USERPROFILE")
         .or_else(|| env::var_os("HOME"))
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."));
-    to_node_path(home.join("Documents").join("CS2 POV Generator"))
+    to_node_path(home.join("Documents").join("CS2-POV-Generator"))
 }
 
 /// Jobs output root (videos, CSDM clips, chapters).
 /// - Dev: `<repo>/fixtures/output/jobs`
-/// - Release: `Documents/CS2 POV Generator/jobs`
+/// - Release: `Documents/CS2-POV-Generator/jobs`
 pub fn jobs_root() -> PathBuf {
     if let Ok(override_dir) = env::var("CS2_POV_JOBS_DIR") {
         if !override_dir.trim().is_empty() {

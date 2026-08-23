@@ -24,6 +24,8 @@ Options:
   --death-notices-only Hide full HUD (cinematic); default is full POV HUD
   --no-true-view       Disable CS2 demo predict / true-view feel
   --video-codec <name> libx264 | libx265 | hevc_nvenc | h264_nvenc | hevc_amf | h264_amf
+  --skip-freeze-seconds <n> Skip early freeze/buy in each clip (default 10)
+  --end-padding-seconds <n> Hold after death or round end (default 3)
   --help
 `);
 }
@@ -54,6 +56,8 @@ async function main() {
       "death-notices-only": { type: "boolean", default: false },
       "no-true-view": { type: "boolean", default: false },
       "video-codec": { type: "string" },
+      "skip-freeze-seconds": { type: "string" },
+      "end-padding-seconds": { type: "string" },
       help: { type: "boolean", short: "h", default: false },
     },
   });
@@ -78,6 +82,12 @@ async function main() {
     showOnlyDeathNotices: values["death-notices-only"] ? true : false,
     trueView: values["no-true-view"] ? false : true,
     videoCodec: values["video-codec"] || "libx264",
+    skipFreezeSeconds: values["skip-freeze-seconds"]
+      ? Number(values["skip-freeze-seconds"])
+      : 10,
+    endPaddingSeconds: values["end-padding-seconds"]
+      ? Number(values["end-padding-seconds"])
+      : undefined,
   });
 
   if (values.split || config.sequences.length === 1) {

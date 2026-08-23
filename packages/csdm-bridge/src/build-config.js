@@ -28,6 +28,24 @@ export function generatePlayerVoicesValues(userIds) {
 }
 
 /**
+ * Start recording after skipping early freeze / buy time.
+ * Never starts after freeze_end (still catch the round go-live).
+ *
+ * @param {{ round_start_tick: number, freeze_end_tick?: number }} row
+ * @param {number} tickrate
+ * @param {number} [skipSeconds=10]
+ */
+export function clipStartTick(row, tickrate, skipSeconds = 10) {
+  const roundStart = Number(row.round_start_tick);
+  const freezeEnd = Number(row.freeze_end_tick ?? roundStart);
+  const rate = Math.max(1, Math.round(Number(tickrate) || 64));
+  const skip = Math.max(0, Number(skipSeconds) || 0);
+  const skipTicks = Math.round(skip * rate);
+  const cappedFreeze = Math.max(roundStart, freezeEnd);
+  return Math.min(roundStart + skipTicks, cappedFreeze);
+}
+
+/**
  * @param {import('./types.js').ParseLike} parsed
  * @param {import('./types.js').BuildOptions} options
  */
@@ -52,7 +70,16 @@ export function buildCsdmVideoConfig(parsed, options) {
     throw new Error(`No player_rounds for ${steamId} (check --rounds filter)`);
   }
 
-  const endPadding = Number(options.endPaddingTicks ?? 0);
+  const tickrate = Math.round(Number(parsed.tickrate) || 64);
+  // Skip early freeze / buy time in the recorded POV (default 10s).
+  const skipFreezeSeconds = Number(options.skipFreezeSeconds ?? 10);
+  // Hold a few seconds after death or round end (default 3s).
+  const endPaddingSeconds = Number(options.endPaddingSeconds ?? 3);
+  const endPadding =
+    options.endPaddingTicks != null
+      ? Number(options.endPaddingTicks)
+      : Math.round(Math.max(0, endPaddingSeconds) * tickrate);
+
   const width = options.width ?? 3840;
   const height = options.height ?? 2160;
   const framerate = options.framerate ?? 60;
@@ -63,7 +90,6 @@ export function buildCsdmVideoConfig(parsed, options) {
   const videoCodec = options.videoCodec ?? "libx264";
   const constantRateFactor = options.constantRateFactor ?? 23;
   const mapSlug = (parsed.map ?? "map").replace(/[^\w-]+/g, "_");
-  const tickrate = Math.round(Number(parsed.tickrate) || 64);
 
   const nameBySteamId = new Map(parsed.players.map((entry) => [entry.steam_id, entry.name]));
   const slotBySteamId = new Map(
@@ -74,8 +100,11 @@ export function buildCsdmVideoConfig(parsed, options) {
 
   const sequences = rounds.map((row, index) => {
     const teamSet = new Set(row.team_steam_ids.map(String));
-    const startTick = row.round_start_tick;
-    const endTick = Math.max(startTick + 1, row.clip_end_tick + endPadding);
+    const startTick = clipStartTick(row, tickrate, skipFreezeSeconds);
+    const roundEnd = Number(row.round_end_tick ?? row.clip_end_tick);
+    const paddedEnd = Number(row.clip_end_tick) + endPadding;
+    const maxEnd = roundEnd + endPadding;
+    const endTick = Math.max(startTick + 1, Math.min(paddedEnd, maxEnd));
     // Spec after freezetime when possible — after demo_gototick setup (CSDM issue #1238).
     const cameraTick = Math.max(
       startTick + 1,

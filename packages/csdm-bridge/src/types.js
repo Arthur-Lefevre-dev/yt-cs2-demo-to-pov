@@ -39,7 +39,8 @@
  * @property {boolean} [showXRay]
  * @property {boolean} [closeGameAfterRecording]
  * @property {string} [outputFileName]
- * @property {number} [endPaddingTicks] extra ticks after clip_end (default 0)
+ * @property {number} [endPaddingTicks] extra ticks after clip_end (overrides endPaddingSeconds)
+ * @property {number} [endPaddingSeconds] seconds after death or round end (default 3)
  * @property {boolean} [voicePlanB] inject bitmask cfg (needs userIds — unused in MVP)
  */
 

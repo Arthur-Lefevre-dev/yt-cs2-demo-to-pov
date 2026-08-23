@@ -161,7 +161,7 @@ export function ThumbnailScreen({
         <h1>Miniatures YouTube</h1>
         <p className="lede">
           3 variantes A/B + titre. Fonds de map :{" "}
-          <code>Documents\CS2 POV Generator\assets\thumbnails\maps\</code> (release) ou{" "}
+          <code>Documents\CS2-POV-Generator\assets\thumbnails\maps\</code> (release) ou{" "}
           <code>fixtures/thumbnails/maps/</code> (dev). Logos équipe via le sélecteur.
         </p>
       </header>

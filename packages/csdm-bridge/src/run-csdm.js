@@ -1,10 +1,10 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { homedir } from "node:os";
-import { join } from "node:path";
 
 /**
- * Quote one argument for cmd.exe `/c` (paths with spaces).
+ * Quote one argument for logging / cmd.exe fallback.
  * @param {unknown} value
  */
 export function quoteWindowsCmdArg(value) {
@@ -15,36 +15,82 @@ export function quoteWindowsCmdArg(value) {
   return `"${s.replace(/(\\*)"/g, "$1$1\\\"")}"`;
 }
 
-function candidateCsdmPaths() {
+/**
+ * @typedef {{ command: string, prefixArgs: string[], env: Record<string, string>, label: string }} CsdmLaunch
+ */
+
+function installRoots() {
   const local = process.env.LOCALAPPDATA ?? join(homedir(), "AppData", "Local");
-  // Prefer .exe (no cmd.exe quoting) over .cmd when both exist.
   return [
-    process.env.CSDM_PATH,
-    join(local, "Programs", "cs-demo-manager", "csdm.exe"),
-    join(local, "Programs", "CS Demo Manager", "csdm.exe"),
-    join(local, "Programs", "cs-demo-manager", "csdm.cmd"),
-    join(local, "Programs", "CS Demo Manager", "csdm.cmd"),
-    "csdm.exe",
-    "csdm.cmd",
-    "csdm",
-  ].filter(Boolean);
+    join(local, "Programs", "cs-demo-manager"),
+    join(local, "Programs", "CS Demo Manager"),
+  ];
 }
 
-export function resolveCsdmExecutable() {
-  for (const candidate of candidateCsdmPaths()) {
-    if (
-      candidate === "csdm" ||
-      candidate === "csdm.exe" ||
-      candidate === "csdm.cmd"
-    ) {
-      // Leave bare names to PATH resolution via shell spawn.
-      continue;
+/**
+ * Prefer launching Electron as Node (same as csdm.cmd) so argv keeps spaces.
+ * `csdm.cmd` uses `%*` which drops quotes → "syntaxe du nom de fichier incorrecte".
+ * @returns {CsdmLaunch}
+ */
+export function resolveCsdmLaunch() {
+  if (process.env.CSDM_PATH && existsSync(process.env.CSDM_PATH)) {
+    const custom = process.env.CSDM_PATH;
+    if (/\.cmd$/i.test(custom)) {
+      return resolveFromCmdWrapper(custom);
     }
-    if (existsSync(candidate)) {
-      return candidate;
+    return { command: custom, prefixArgs: [], env: {}, label: custom };
+  }
+
+  for (const root of installRoots()) {
+    const launch = tryElectronLaunch(root);
+    if (launch) {
+      return launch;
     }
   }
-  return "csdm.cmd";
+
+  for (const root of installRoots()) {
+    const cmd = join(root, "csdm.cmd");
+    if (existsSync(cmd)) {
+      return { command: cmd, prefixArgs: [], env: {}, label: cmd };
+    }
+  }
+
+  return { command: "csdm.cmd", prefixArgs: [], env: {}, label: "csdm.cmd" };
+}
+
+/**
+ * @param {string} root
+ * @returns {CsdmLaunch | null}
+ */
+function tryElectronLaunch(root) {
+  const exe = join(root, "cs-demo-manager.exe");
+  const asar = join(root, "resources", "app.asar");
+  // cli.js lives inside the asar — existsSync(asar/cli.js) is false outside Electron.
+  if (existsSync(exe) && existsSync(asar)) {
+    return {
+      command: exe,
+      prefixArgs: [join(asar, "cli.js")],
+      env: { ELECTRON_RUN_AS_NODE: "1" },
+      label: join(root, "csdm.cmd"),
+    };
+  }
+  return null;
+}
+
+/** @param {string} cmdPath */
+function resolveFromCmdWrapper(cmdPath) {
+  const root = dirname(cmdPath);
+  return tryElectronLaunch(root) ?? {
+    command: cmdPath,
+    prefixArgs: [],
+    env: {},
+    label: cmdPath,
+  };
+}
+
+/** @deprecated use resolveCsdmLaunch */
+export function resolveCsdmExecutable() {
+  return resolveCsdmLaunch().label;
 }
 
 /**
@@ -57,15 +103,19 @@ export function runCsdmVideo({
   analyze = true,
   source = "faceit",
   focusPlayerSteamId = null,
-  csdmPath = resolveCsdmExecutable(),
+  csdmPath,
   extraArgs = [],
   onLog = (line) => process.stderr.write(line),
 }) {
   return new Promise(async (resolve, reject) => {
     try {
+      const launch = csdmPath
+        ? resolveFromCmdWrapper(csdmPath)
+        : resolveCsdmLaunch();
+
       if (analyze && demoPath) {
         const analyzeCode = await spawnLogged(
-          csdmPath,
+          launch,
           ["analyze", demoPath, "--source", source, "--force"],
           onLog,
         );
@@ -83,7 +133,7 @@ export function runCsdmVideo({
         videoArgs.push("--focus-player", String(focusPlayerSteamId));
       }
 
-      const code = await spawnLogged(csdmPath, videoArgs, onLog);
+      const code = await spawnLogged(launch, videoArgs, onLog);
       resolve(code);
     } catch (error) {
       reject(error);
@@ -92,7 +142,6 @@ export function runCsdmVideo({
 }
 
 /**
- * Build the single string passed to `cmd.exe /d /s /c …`.
  * @param {string} command
  * @param {string[]} args
  */
@@ -101,28 +150,37 @@ export function buildWindowsCmdLine(command, args) {
   return `"${command}" ${quotedArgs.join(" ")}`.trimEnd();
 }
 
-function spawnLogged(command, args, onLog) {
+/**
+ * @param {CsdmLaunch} launch
+ * @param {string[]} args
+ * @param {(line: string) => void} onLog
+ */
+function spawnLogged(launch, args, onLog) {
   return new Promise((resolve, reject) => {
-    const isCmd = /\.cmd$/i.test(String(command));
-    const quotedArgs = args.map(quoteWindowsCmdArg);
-    onLog(`\n> ${command} ${quotedArgs.join(" ")}\n`);
+    const fullArgs = [...launch.prefixArgs, ...args];
+    const display = `${launch.label} ${args.map(quoteWindowsCmdArg).join(" ")}`;
+    onLog(`\n> ${display}\n`);
 
+    const isCmd = /\.cmd$/i.test(String(launch.command));
     /** @type {import("node:child_process").ChildProcess} */
     let child;
+
     if (isCmd && process.platform === "win32") {
-      // .cmd needs cmd.exe. Node escapes quotes unless windowsVerbatimArguments.
-      // Without it, cmd sees \"path\" and fails with "not recognized".
+      // Last-resort fallback — .cmd %* still breaks spaces; prefer Electron path above.
       const comspec = process.env.ComSpec || "cmd.exe";
-      const cmdLine = buildWindowsCmdLine(command, args);
+      const cmdLine = buildWindowsCmdLine(launch.command, fullArgs);
       child = spawn(comspec, ["/d", "/s", "/c", cmdLine], {
         shell: false,
         windowsHide: false,
         windowsVerbatimArguments: true,
+        env: { ...process.env, ...launch.env },
       });
     } else {
-      child = spawn(command, args, {
+      // Direct Electron-as-Node: argv array keeps spaces (no cmd / %*).
+      child = spawn(launch.command, fullArgs, {
         shell: false,
         windowsHide: false,
+        env: { ...process.env, ...launch.env },
       });
     }
 
