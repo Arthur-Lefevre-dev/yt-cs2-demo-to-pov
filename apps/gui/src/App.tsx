@@ -188,7 +188,7 @@ function App() {
           <span className="brand-mark">POV</span>
           <div>
             <strong>CS2 POV Generator</strong>
-            <p>FACEIT demo → YouTube</p>
+            <p>CS2 demo → YouTube</p>
           </div>
         </div>
         <nav className="steps">

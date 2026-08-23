@@ -11,6 +11,8 @@ export type PrerequisiteItem = {
 export type PrerequisitesReport = {
   osSupported: boolean;
   osName: string;
+  cpuName: string | null;
+  gpuName: string | null;
   items: PrerequisiteItem[];
   readyForParse: boolean;
   readyForRender: boolean;

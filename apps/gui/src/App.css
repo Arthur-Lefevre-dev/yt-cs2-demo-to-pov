@@ -208,6 +208,10 @@ code,
 
 .badge.muted {
   color: var(--muted);
+  max-width: min(100%, 28rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .prereq-list {

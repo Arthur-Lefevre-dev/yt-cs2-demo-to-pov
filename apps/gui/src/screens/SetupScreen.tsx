@@ -34,6 +34,12 @@ export function SetupScreen({ report, loading, error, onRefresh, onContinue }: P
               Rendu : {report.readyForRender ? "prêt" : "incomplet"}
             </span>
             <span className="badge muted">OS : {report.osName}</span>
+            <span className="badge muted" title={report.cpuName ?? undefined}>
+              CPU : {report.cpuName ?? "inconnu"}
+            </span>
+            <span className="badge muted" title={report.gpuName ?? undefined}>
+              GPU : {report.gpuName ?? "inconnu"}
+            </span>
           </div>
 
           <ul className="prereq-list">

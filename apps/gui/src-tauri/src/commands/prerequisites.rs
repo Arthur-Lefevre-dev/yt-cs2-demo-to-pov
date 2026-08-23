@@ -20,6 +20,8 @@ pub struct PrerequisiteItem {
 pub struct PrerequisitesReport {
     pub os_supported: bool,
     pub os_name: String,
+    pub cpu_name: Option<String>,
+    pub gpu_name: Option<String>,
     pub items: Vec<PrerequisiteItem>,
     pub ready_for_parse: bool,
     pub ready_for_render: bool,
@@ -152,10 +154,69 @@ fn node_version(node: &Path) -> Option<String> {
     Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
+/// Run a short PowerShell one-liner and return trimmed stdout (Windows only).
+#[cfg(windows)]
+fn powershell_stdout(script: &str) -> Option<String> {
+    let output = Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", script])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if text.is_empty() {
+        None
+    } else {
+        Some(text)
+    }
+}
+
+#[cfg(not(windows))]
+fn powershell_stdout(_script: &str) -> Option<String> {
+    None
+}
+
+fn detect_cpu_name() -> Option<String> {
+    let raw = powershell_stdout("(Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty Name)")?;
+    let cleaned = raw.split_whitespace().collect::<Vec<_>>().join(" ");
+    if cleaned.is_empty() {
+        None
+    } else {
+        Some(cleaned)
+    }
+}
+
+/// Prefer a discrete AMD/NVIDIA adapter when present; otherwise first adapter.
+fn detect_gpu_name() -> Option<String> {
+    let raw = powershell_stdout(
+        "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name",
+    )?;
+    let names: Vec<String> = raw
+        .lines()
+        .map(|line| line.trim())
+        .filter(|line| !line.is_empty())
+        .map(|line| line.split_whitespace().collect::<Vec<_>>().join(" "))
+        .collect();
+    if names.is_empty() {
+        return None;
+    }
+
+    let preferred = names.iter().find(|name| {
+        let lower = name.to_lowercase();
+        (lower.contains("nvidia") || lower.contains("amd") || lower.contains("radeon"))
+            && !lower.contains("microsoft")
+            && !lower.contains("basic display")
+    });
+    preferred.or(names.first()).cloned()
+}
+
 #[tauri::command]
 pub fn check_prerequisites() -> PrerequisitesReport {
     let os_supported = cfg!(target_os = "windows");
     let os_name = env::consts::OS.to_string();
+    let cpu_name = detect_cpu_name();
+    let gpu_name = detect_gpu_name();
 
     let node = detect_node();
     let node_path = node.as_ref().map(|p| p.display().to_string());
@@ -238,6 +299,8 @@ pub fn check_prerequisites() -> PrerequisitesReport {
     PrerequisitesReport {
         os_supported,
         os_name,
+        cpu_name,
+        gpu_name,
         items,
         ready_for_parse,
         ready_for_render,
