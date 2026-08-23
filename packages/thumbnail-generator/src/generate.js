@@ -22,9 +22,10 @@ const TEXT_X = 900;
 const PLAYER_WIDTH_RATIO = 0.54;
 const PLAYER_HEIGHT_RATIO = 1;
 const PLAYER_LEFT = 8;
-/** Large watermark behind the player cutout. */
-const TEAM_LOGO_SIZE_RATIO = 0.72;
-const TEAM_LOGO_OPACITY = 0.28;
+/** Large watermark behind the player, pinned to the left. */
+const TEAM_LOGO_SIZE_RATIO = 0.85;
+const TEAM_LOGO_OPACITY = 0.32;
+const TEAM_LOGO_LEFT = 0;
 const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 
 /**
@@ -118,7 +119,8 @@ async function applyImageOpacity(imageBuffer, opacity) {
 }
 
 /**
- * Team logo watermark centered behind the player on the left.
+ * Team logo watermark on the left, drawn behind the player cutout.
+ * Returns a full-frame transparent PNG so layering order stays simple.
  * @param {string} teamLogoPath
  * @param {{ opacity?: number, sizeRatio?: number }} [options]
  */
@@ -139,16 +141,35 @@ async function prepareTeamLogo(teamLogoPath, options = {}) {
   const meta = await sharp(faded).metadata();
   const width = meta.width ?? size;
   const height = meta.height ?? size;
-  const playerZoneCenterX = PLAYER_LEFT + Math.round((W * PLAYER_WIDTH_RATIO) / 2);
-  const left = Math.round(playerZoneCenterX - width / 2);
+  // Flush left; vertically centered. Slight bleed off the left edge.
+  const left = TEAM_LOGO_LEFT;
   const top = Math.round(H / 2 - height / 2);
 
+  // Full-frame layer so negative offsets still composite cleanly.
+  const layer = await sharp({
+    create: {
+      width: W,
+      height: H,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  })
+    .composite([
+      {
+        input: faded,
+        left: Math.max(0, left),
+        top: Math.max(0, Math.min(top, H - height)),
+      },
+    ])
+    .png()
+    .toBuffer();
+
   return {
-    buffer: faded,
-    left: Math.max(0, left),
-    top: Math.max(0, top),
-    width,
-    height,
+    buffer: layer,
+    left: 0,
+    top: 0,
+    width: W,
+    height: H,
   };
 }
 
