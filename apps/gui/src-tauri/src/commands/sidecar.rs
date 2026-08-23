@@ -17,12 +17,83 @@ pub fn to_node_path(path: impl AsRef<Path>) -> PathBuf {
     path.to_path_buf()
 }
 
+/// Repo root (dev / same-machine builds). Baked from compile-time manifest dir.
 pub fn workspace_root() -> PathBuf {
     let relative = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
     relative
         .canonicalize()
         .map(to_node_path)
         .unwrap_or(relative)
+}
+
+/// `true` for `tauri dev` / debug builds. Release installs use user Documents.
+pub fn is_dev_build() -> bool {
+    cfg!(debug_assertions)
+}
+
+/// User-facing folder: `%USERPROFILE%\Documents\CS2 POV Generator`
+pub fn user_app_root() -> PathBuf {
+    let home = env::var_os("USERPROFILE")
+        .or_else(|| env::var_os("HOME"))
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."));
+    to_node_path(home.join("Documents").join("CS2 POV Generator"))
+}
+
+/// Jobs output root (videos, CSDM clips, chapters).
+/// - Dev: `<repo>/fixtures/output/jobs`
+/// - Release: `Documents/CS2 POV Generator/jobs`
+pub fn jobs_root() -> PathBuf {
+    if let Ok(override_dir) = env::var("CS2_POV_JOBS_DIR") {
+        if !override_dir.trim().is_empty() {
+            return to_node_path(PathBuf::from(override_dir.trim()));
+        }
+    }
+    if is_dev_build() {
+        to_node_path(
+            workspace_root()
+                .join("fixtures")
+                .join("output")
+                .join("jobs"),
+        )
+    } else {
+        user_app_root().join("jobs")
+    }
+}
+
+pub fn job_work_dir(job_slug: &str) -> PathBuf {
+    to_node_path(jobs_root().join(job_slug))
+}
+
+/// Map backgrounds for thumbnail generator.
+pub fn thumbnails_maps_root() -> PathBuf {
+    let user_maps = user_app_root()
+        .join("assets")
+        .join("thumbnails")
+        .join("maps");
+    if user_maps.is_dir() {
+        return to_node_path(user_maps);
+    }
+    to_node_path(
+        workspace_root()
+            .join("fixtures")
+            .join("thumbnails")
+            .join("maps"),
+    )
+}
+
+/// Default thumbnails output when no job work_dir is provided.
+pub fn default_thumbnails_out_dir() -> PathBuf {
+    if is_dev_build() {
+        to_node_path(
+            workspace_root()
+                .join("fixtures")
+                .join("output")
+                .join("thumbnails"),
+        )
+    } else {
+        user_app_root().join("thumbnails")
+    }
 }
 
 pub fn resolve_node() -> Result<PathBuf, String> {

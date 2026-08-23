@@ -1,4 +1,6 @@
-use super::sidecar::{run_node_cli, to_node_path, workspace_root};
+use super::sidecar::{
+    default_thumbnails_out_dir, run_node_cli, thumbnails_maps_root, to_node_path,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::ffi::OsString;
@@ -45,15 +47,14 @@ pub fn generate_thumbnails(request: ThumbnailRequest) -> Result<ThumbnailResult,
         return Err(format!("Player photo not found: {}", request.player_photo_path));
     }
 
-    let root = workspace_root();
     let out_dir = to_node_path(match (&request.out_dir, &request.work_dir) {
         (Some(path), _) => PathBuf::from(path),
         (None, Some(work)) => PathBuf::from(work).join("thumbnails"),
-        (None, None) => root.join("fixtures/output/thumbnails"),
+        (None, None) => default_thumbnails_out_dir(),
     });
     fs::create_dir_all(&out_dir).map_err(|err| format!("Cannot create thumbnails dir: {err}"))?;
 
-    let maps_root = to_node_path(root.join("fixtures/thumbnails/maps"));
+    let maps_root = thumbnails_maps_root();
 
     let mut args = vec![
         OsString::from("--player-photo"),

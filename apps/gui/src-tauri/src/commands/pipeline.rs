@@ -1,4 +1,4 @@
-use super::sidecar::{run_node_cli_streaming, to_node_path, workspace_root};
+use super::sidecar::{job_work_dir, run_node_cli_streaming, to_node_path};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::ffi::OsString;
@@ -193,7 +193,6 @@ fn run_pipeline_inner(app: AppHandle, request: PipelineRequest) -> Result<Pipeli
     }
 
     let mut logs = Vec::new();
-    let root = workspace_root();
     let map = request
         .parse_result
         .get("map")
@@ -207,7 +206,7 @@ fn run_pipeline_inner(app: AppHandle, request: PipelineRequest) -> Result<Pipeli
 
     let work_dir = to_node_path(match &request.work_dir {
         Some(path) => PathBuf::from(path),
-        None => root.join(format!("fixtures/output/jobs/{safe_player}-{map}")),
+        None => job_work_dir(&format!("{safe_player}-{map}")),
     });
     fs::create_dir_all(&work_dir).map_err(|err| format!("Cannot create work dir: {err}"))?;
     emit_log(&app, &mut logs, format!("Work dir: {}", work_dir.display()));
