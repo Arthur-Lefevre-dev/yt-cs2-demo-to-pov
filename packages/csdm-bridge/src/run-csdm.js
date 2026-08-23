@@ -3,6 +3,18 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+/**
+ * Quote one argument for cmd.exe `/c "batch.cmd" ...` (paths with spaces).
+ * @param {unknown} value
+ */
+export function quoteWindowsCmdArg(value) {
+  const s = String(value);
+  if (!/[\s"]/u.test(s)) {
+    return s;
+  }
+  return `"${s.replace(/(\\*)"/g, '$1$1\\"')}"`;
+}
+
 function candidateCsdmPaths() {
   const local = process.env.LOCALAPPDATA ?? join(homedir(), "AppData", "Local");
   return [
@@ -80,14 +92,28 @@ export function runCsdmVideo({
 
 function spawnLogged(command, args, onLog) {
   return new Promise((resolve, reject) => {
-    onLog(`\n> ${command} ${args.join(" ")}\n`);
-    // Prefer shell:false; .cmd still needs shell on Windows.
-    const useShell = /\.cmd$/i.test(String(command));
-    const child = spawn(command, args, {
-      shell: useShell,
-      windowsHide: false,
-      windowsVerbatimArguments: false,
-    });
+    const isCmd = /\.cmd$/i.test(String(command));
+    const quotedArgs = args.map(quoteWindowsCmdArg);
+    onLog(`\n> ${command} ${quotedArgs.join(" ")}\n`);
+
+    /** @type {import("node:child_process").ChildProcess} */
+    let child;
+    if (isCmd && process.platform === "win32") {
+      // shell:true drops quotes before .cmd batch files see argv — break paths with spaces.
+      const comspec = process.env.ComSpec || "cmd.exe";
+      const cmdLine = `"${command}" ${quotedArgs.join(" ")}`;
+      child = spawn(comspec, ["/d", "/s", "/c", cmdLine], {
+        shell: false,
+        windowsHide: false,
+      });
+    } else {
+      child = spawn(command, args, {
+        shell: isCmd,
+        windowsHide: false,
+        windowsVerbatimArguments: false,
+      });
+    }
+
     child.stdout?.on("data", (chunk) => onLog(String(chunk)));
     child.stderr?.on("data", (chunk) => onLog(String(chunk)));
     child.on("error", (error) => {
