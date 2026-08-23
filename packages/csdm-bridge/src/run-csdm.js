@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 /**
- * Quote one argument for cmd.exe `/c "batch.cmd" ...` (paths with spaces).
+ * Quote one argument for cmd.exe `/c` (paths with spaces).
  * @param {unknown} value
  */
 export function quoteWindowsCmdArg(value) {
@@ -12,19 +12,20 @@ export function quoteWindowsCmdArg(value) {
   if (!/[\s"]/u.test(s)) {
     return s;
   }
-  return `"${s.replace(/(\\*)"/g, '$1$1\\"')}"`;
+  return `"${s.replace(/(\\*)"/g, "$1$1\\\"")}"`;
 }
 
 function candidateCsdmPaths() {
   const local = process.env.LOCALAPPDATA ?? join(homedir(), "AppData", "Local");
+  // Prefer .exe (no cmd.exe quoting) over .cmd when both exist.
   return [
     process.env.CSDM_PATH,
-    join(local, "Programs", "cs-demo-manager", "csdm.cmd"),
-    join(local, "Programs", "CS Demo Manager", "csdm.cmd"),
     join(local, "Programs", "cs-demo-manager", "csdm.exe"),
     join(local, "Programs", "CS Demo Manager", "csdm.exe"),
-    "csdm.cmd",
+    join(local, "Programs", "cs-demo-manager", "csdm.cmd"),
+    join(local, "Programs", "CS Demo Manager", "csdm.cmd"),
     "csdm.exe",
+    "csdm.cmd",
     "csdm",
   ].filter(Boolean);
 }
@@ -90,6 +91,16 @@ export function runCsdmVideo({
   });
 }
 
+/**
+ * Build the single string passed to `cmd.exe /d /s /c …`.
+ * @param {string} command
+ * @param {string[]} args
+ */
+export function buildWindowsCmdLine(command, args) {
+  const quotedArgs = args.map(quoteWindowsCmdArg);
+  return `"${command}" ${quotedArgs.join(" ")}`.trimEnd();
+}
+
 function spawnLogged(command, args, onLog) {
   return new Promise((resolve, reject) => {
     const isCmd = /\.cmd$/i.test(String(command));
@@ -99,18 +110,19 @@ function spawnLogged(command, args, onLog) {
     /** @type {import("node:child_process").ChildProcess} */
     let child;
     if (isCmd && process.platform === "win32") {
-      // shell:true drops quotes before .cmd batch files see argv — break paths with spaces.
+      // .cmd needs cmd.exe. Node escapes quotes unless windowsVerbatimArguments.
+      // Without it, cmd sees \"path\" and fails with "not recognized".
       const comspec = process.env.ComSpec || "cmd.exe";
-      const cmdLine = `"${command}" ${quotedArgs.join(" ")}`;
+      const cmdLine = buildWindowsCmdLine(command, args);
       child = spawn(comspec, ["/d", "/s", "/c", cmdLine], {
         shell: false,
         windowsHide: false,
+        windowsVerbatimArguments: true,
       });
     } else {
       child = spawn(command, args, {
-        shell: isCmd,
+        shell: false,
         windowsHide: false,
-        windowsVerbatimArguments: false,
       });
     }
 
