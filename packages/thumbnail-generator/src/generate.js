@@ -22,10 +22,11 @@ const TEXT_X = 900;
 const PLAYER_WIDTH_RATIO = 0.54;
 const PLAYER_HEIGHT_RATIO = 1;
 const PLAYER_LEFT = 8;
-/** Large watermark behind the player, pinned to the left. */
-const TEAM_LOGO_SIZE_RATIO = 0.85;
-const TEAM_LOGO_OPACITY = 0.32;
-const TEAM_LOGO_LEFT = 0;
+/** Large watermark behind the player — left side of the frame (see POV thumbnail refs). */
+const TEAM_LOGO_SIZE_RATIO = 1.05;
+const TEAM_LOGO_OPACITY = 0.4;
+/** Logo center as a fraction of the player column width (0 = left edge, 0.5 = middle). */
+const TEAM_LOGO_ANCHOR_X = 0.28;
 const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 
 /**
@@ -119,8 +120,8 @@ async function applyImageOpacity(imageBuffer, opacity) {
 }
 
 /**
- * Team logo watermark on the left, drawn behind the player cutout.
- * Returns a full-frame transparent PNG so layering order stays simple.
+ * Team logo watermark on the LEFT behind the player (large translucent brand mark).
+ * Returns a full-frame transparent PNG; composite order must be: logo → player → text.
  * @param {string} teamLogoPath
  * @param {{ opacity?: number, sizeRatio?: number }} [options]
  */
@@ -141,11 +142,47 @@ async function prepareTeamLogo(teamLogoPath, options = {}) {
   const meta = await sharp(faded).metadata();
   const width = meta.width ?? size;
   const height = meta.height ?? size;
-  // Flush left; vertically centered. Slight bleed off the left edge.
-  const left = TEAM_LOGO_LEFT;
-  const top = Math.round(H / 2 - height / 2);
 
-  // Full-frame layer so negative offsets still composite cleanly.
+  // Anchor in the left player column so the mark sits behind the cutout
+  // and peeks out on the left (the circled zone on POV thumbnails).
+  const playerZoneW = Math.round(W * PLAYER_WIDTH_RATIO);
+  const logoCenterX = PLAYER_LEFT + Math.round(playerZoneW * TEAM_LOGO_ANCHOR_X);
+  let left = Math.round(logoCenterX - width / 2);
+  let top = Math.round(H * 0.42 - height / 2);
+
+  // Build a full-frame layer; crop if the logo bleeds past the canvas edges.
+  let input = faded;
+  let placeLeft = left;
+  let placeTop = top;
+  let srcLeft = 0;
+  let srcTop = 0;
+  let srcW = width;
+  let srcH = height;
+
+  if (left < 0) {
+    srcLeft = -left;
+    srcW = width + left;
+    placeLeft = 0;
+  }
+  if (top < 0) {
+    srcTop = -top;
+    srcH = height + top;
+    placeTop = 0;
+  }
+  if (placeLeft + srcW > W) {
+    srcW = W - placeLeft;
+  }
+  if (placeTop + srcH > H) {
+    srcH = H - placeTop;
+  }
+
+  if (srcW > 0 && srcH > 0 && (srcLeft > 0 || srcTop > 0 || srcW < width || srcH < height)) {
+    input = await sharp(faded)
+      .extract({ left: srcLeft, top: srcTop, width: srcW, height: srcH })
+      .png()
+      .toBuffer();
+  }
+
   const layer = await sharp({
     create: {
       width: W,
@@ -156,9 +193,9 @@ async function prepareTeamLogo(teamLogoPath, options = {}) {
   })
     .composite([
       {
-        input: faded,
-        left: Math.max(0, left),
-        top: Math.max(0, Math.min(top, H - height)),
+        input,
+        left: Math.max(0, placeLeft),
+        top: Math.max(0, placeTop),
       },
     ])
     .png()
@@ -203,13 +240,26 @@ function splitKillDeath(score) {
 }
 
 /**
+ * @param {string | null | undefined} matchup
+ * @param {string | null | undefined} matchKind
+ */
+function resolveThumbMatchup(matchup, matchKind) {
+  if (matchKind === "faceit" || matchKind === "premier") {
+    return null;
+  }
+  const text = matchup?.trim();
+  return text || null;
+}
+
+/**
  * Style A — gold name + red kills (ZywOo-like).
  */
-function svgStyleGoldKills({ playerName, score, ratingLabel, mapLabel }) {
+function svgStyleGoldKills({ playerName, score, ratingLabel, mapLabel, matchup }) {
   const name = escapeXml(playerName.toUpperCase());
   const { left, right } = splitKillDeath(score);
   const kills = escapeXml(left);
   const second = right != null ? `-${escapeXml(right)}` : "";
+  const hasMatchup = Boolean(matchup);
   return Buffer.from(`
 <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -221,13 +271,18 @@ function svgStyleGoldKills({ playerName, score, ratingLabel, mapLabel }) {
     </linearGradient>
   </defs>
   <g filter="url(#s)" font-family="Impact, Arial Black, sans-serif" font-weight="900">
-    <text x="${TEXT_X}" y="210" text-anchor="middle" fill="url(#gold)" font-size="148" stroke="#1a1200" stroke-width="12" paint-order="stroke fill">${name}</text>
-    <text x="${TEXT_X}" y="360" text-anchor="middle" font-size="128" stroke="#1a0000" stroke-width="10" paint-order="stroke fill">
+    <text x="${TEXT_X}" y="${hasMatchup ? 170 : 210}" text-anchor="middle" fill="url(#gold)" font-size="${hasMatchup ? 150 : 190}" stroke="#1a1200" stroke-width="12" paint-order="stroke fill">${name}</text>
+    <text x="${TEXT_X}" y="${hasMatchup ? 300 : 360}" text-anchor="middle" font-size="${hasMatchup ? 120 : 148}" stroke="#1a0000" stroke-width="10" paint-order="stroke fill">
       <tspan fill="#ff2a2a">${kills}</tspan>
       <tspan fill="#ffffff">${second}</tspan>
     </text>
-    <text x="${TEXT_X}" y="460" text-anchor="middle" fill="#ffffff" font-size="72" stroke="#000" stroke-width="8" paint-order="stroke fill">${escapeXml(ratingLabel)}</text>
-    <text x="${TEXT_X}" y="560" text-anchor="middle" fill="#ffffff" font-size="64" stroke="#000" stroke-width="8" paint-order="stroke fill">${escapeXml(mapLabel.toUpperCase())}</text>
+    <text x="${TEXT_X}" y="${hasMatchup ? 390 : 460}" text-anchor="middle" fill="#ffffff" font-size="${hasMatchup ? 72 : 92}" stroke="#000" stroke-width="8" paint-order="stroke fill">${escapeXml(ratingLabel)}</text>
+    <text x="${TEXT_X}" y="${hasMatchup ? 480 : 560}" text-anchor="middle" fill="#ffffff" font-size="${hasMatchup ? 58 : 72}" stroke="#000" stroke-width="8" paint-order="stroke fill">${escapeXml(mapLabel.toUpperCase())}</text>
+    ${
+      hasMatchup
+        ? `<text x="${TEXT_X}" y="580" text-anchor="middle" fill="#f5c518" font-size="52" stroke="#000" stroke-width="7" paint-order="stroke fill">${escapeXml(matchup)}</text>`
+        : ""
+    }
   </g>
 </svg>`);
 }
@@ -235,17 +290,23 @@ function svgStyleGoldKills({ playerName, score, ratingLabel, mapLabel }) {
 /**
  * Style B — white stack + yellow accents (ropz-like).
  */
-function svgStyleStack({ playerName, score, ratingLabel, mapLabel }) {
+function svgStyleStack({ playerName, score, ratingLabel, mapLabel, matchup }) {
   const name = escapeXml(playerName);
+  const hasMatchup = Boolean(matchup);
   return Buffer.from(`
 <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
   <defs>${textShadowFilter("s", 3, 3)}</defs>
   <g filter="url(#s)" font-family="Arial Black, Impact, sans-serif" font-weight="900" fill="#fff" stroke="#000"
      stroke-width="10" paint-order="stroke fill">
-    <text x="${TEXT_X}" y="180" text-anchor="middle" font-size="148">${name}</text>
-    <text x="${TEXT_X}" y="320" text-anchor="middle" font-size="124">${escapeXml(score)}</text>
-    <text x="${TEXT_X}" y="420" text-anchor="middle" font-size="68" fill="#f5c518" stroke="#000">${escapeXml(ratingLabel)}</text>
-    <text x="${TEXT_X}" y="520" text-anchor="middle" font-size="64" fill="#f5c518" stroke="#000">${escapeXml(mapLabel)} POV</text>
+    <text x="${TEXT_X}" y="${hasMatchup ? 150 : 180}" text-anchor="middle" font-size="${hasMatchup ? 120 : 148}">${name}</text>
+    <text x="${TEXT_X}" y="${hasMatchup ? 270 : 320}" text-anchor="middle" font-size="${hasMatchup ? 100 : 124}">${escapeXml(score)}</text>
+    <text x="${TEXT_X}" y="${hasMatchup ? 360 : 420}" text-anchor="middle" font-size="${hasMatchup ? 56 : 68}" fill="#f5c518" stroke="#000">${escapeXml(ratingLabel)}</text>
+    <text x="${TEXT_X}" y="${hasMatchup ? 450 : 520}" text-anchor="middle" font-size="${hasMatchup ? 52 : 64}" fill="#f5c518" stroke="#000">${escapeXml(mapLabel)} POV</text>
+    ${
+      hasMatchup
+        ? `<text x="${TEXT_X}" y="550" text-anchor="middle" font-size="48" fill="#f5c518" stroke="#000">${escapeXml(matchup)}</text>`
+        : ""
+    }
   </g>
 </svg>`);
 }
@@ -253,17 +314,23 @@ function svgStyleStack({ playerName, score, ratingLabel, mapLabel }) {
 /**
  * Style C — big white italic name + score (m0NESY-like).
  */
-function svgStyleItalic({ playerName, score, ratingLabel, mapLabel }) {
+function svgStyleItalic({ playerName, score, ratingLabel, mapLabel, matchup }) {
   const name = escapeXml(playerName.toUpperCase());
+  const hasMatchup = Boolean(matchup);
   return Buffer.from(`
 <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
   <defs>${textShadowFilter("s", 5, 5)}</defs>
   <g filter="url(#s)" font-family="Impact, Arial Black, sans-serif" font-style="italic" font-weight="900"
      fill="#ffffff" stroke="#000000" stroke-width="14" paint-order="stroke fill">
-    <text x="${TEXT_X}" y="220" text-anchor="middle" font-size="168">${name}</text>
-    <text x="${TEXT_X}" y="380" text-anchor="middle" font-size="136">${escapeXml(score)}</text>
-    <text x="${TEXT_X}" y="490" text-anchor="middle" font-size="72" font-style="normal">${escapeXml(ratingLabel)}</text>
-    <text x="${TEXT_X}" y="590" text-anchor="middle" font-size="56" font-style="normal">${escapeXml(mapLabel.toUpperCase())} POV</text>
+    <text x="${TEXT_X}" y="${hasMatchup ? 180 : 220}" text-anchor="middle" font-size="${hasMatchup ? 140 : 168}">${name}</text>
+    <text x="${TEXT_X}" y="${hasMatchup ? 320 : 380}" text-anchor="middle" font-size="${hasMatchup ? 110 : 136}">${escapeXml(score)}</text>
+    <text x="${TEXT_X}" y="${hasMatchup ? 410 : 490}" text-anchor="middle" font-size="${hasMatchup ? 60 : 72}" font-style="normal">${escapeXml(ratingLabel)}</text>
+    <text x="${TEXT_X}" y="${hasMatchup ? 500 : 590}" text-anchor="middle" font-size="${hasMatchup ? 48 : 56}" font-style="normal">${escapeXml(mapLabel.toUpperCase())} POV</text>
+    ${
+      hasMatchup
+        ? `<text x="${TEXT_X}" y="590" text-anchor="middle" font-size="46" font-style="normal" fill="#f5c518">${escapeXml(matchup)}</text>`
+        : ""
+    }
   </g>
 </svg>`);
 }
@@ -289,6 +356,9 @@ export async function generateThumbnails(options) {
     rounds,
     rating: ratingOverride,
     score: scoreOverride,
+    matchKind,
+    eventName,
+    matchup,
     mapsRoot,
     outDir,
     date = new Date(),
@@ -325,11 +395,15 @@ export async function generateThumbnails(options) {
     rating: ratingOverride,
   });
   const ratingLabel = formatRatingLabel(hltvRating);
+  const thumbMatchup = resolveThumbMatchup(matchup, matchKind);
   const title = buildYoutubeTitle({
     playerName: playerName.trim(),
     score,
     mapLabel,
     date,
+    matchKind,
+    eventName,
+    matchup,
   });
 
   const playerBuf = await preparePlayerCutout(playerPhotoPath);
@@ -349,6 +423,7 @@ export async function generateThumbnails(options) {
       score,
       ratingLabel,
       mapLabel,
+      matchup: thumbMatchup,
     });
 
     /** @type {Array<{ input: Buffer, left?: number, top?: number }>} */
@@ -385,6 +460,9 @@ export async function generateThumbnails(options) {
     score,
     hltvRating,
     ratingLabel,
+    matchKind: matchKind ?? null,
+    eventName: eventName?.trim() || null,
+    matchup: matchup?.trim() || null,
     teamLogoPath: teamLogoPath ? resolve(teamLogoPath) : null,
     map: normalizeMapKey(mapName),
     mapLabel,
@@ -401,6 +479,9 @@ export async function generateThumbnails(options) {
     score,
     hltvRating,
     ratingLabel,
+    matchKind: matchKind ?? null,
+    eventName: eventName?.trim() || null,
+    matchup: matchup?.trim() || null,
     mapLabel,
     outDir: outBase,
     metaPath,

@@ -24,6 +24,9 @@ Options:
   --rating <n>           Override HLTV rating (e.g. 1.46)
   --score <text>         Override score text (e.g. 16-18)
   --team-logo <path>     Optional team logo PNG (watermark behind player)
+  --match-kind <kind>    faceit | premier | tournament
+  --event <name>         Event name for tournament titles (BLAST.tv, IEM Rio, …)
+  --matchup <text>       "Vitality vs Spirit" for tournament titles
   --maps-root <path>     Default: fixtures/thumbnails/maps
   --help
 `);
@@ -42,6 +45,9 @@ async function main() {
       rating: { type: "string" },
       score: { type: "string" },
       "team-logo": { type: "string" },
+      "match-kind": { type: "string" },
+      event: { type: "string" },
+      matchup: { type: "string" },
       "maps-root": { type: "string" },
       help: { type: "boolean", short: "h", default: false },
     },
@@ -72,6 +78,9 @@ async function main() {
     rounds: values.rounds ? Number(values.rounds) : undefined,
     rating: values.rating ? Number(values.rating) : undefined,
     score: values.score,
+    matchKind: values["match-kind"],
+    eventName: values.event,
+    matchup: values.matchup,
     mapsRoot: values["maps-root"]
       ? resolve(values["maps-root"])
       : resolve(repoRoot, "fixtures/thumbnails/maps"),

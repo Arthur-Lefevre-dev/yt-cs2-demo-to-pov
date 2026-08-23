@@ -13,6 +13,8 @@ Options:
   --clips <paths>        Comma-separated round clips (required)
   --lobby <image>        FACEIT lobby screenshot for intro
   --intro-seconds <n>    Intro duration (default 4)
+  --commercial <video>   Optional ad/sponsor clip inserted after Round 1
+  --commercial-label <t> Chapter label (default Sponsors)
   --work-dir <path>      Temp/normalized clips folder
   --result-json <path>   Also write assemble result JSON here
   --width <n>            Default 3840 (4K)
@@ -29,6 +31,8 @@ async function main() {
       clips: { type: "string" },
       lobby: { type: "string" },
       "intro-seconds": { type: "string" },
+      commercial: { type: "string" },
+      "commercial-label": { type: "string" },
       "work-dir": { type: "string" },
       "result-json": { type: "string" },
       width: { type: "string" },
@@ -55,6 +59,9 @@ async function main() {
   if (values.lobby && !existsSync(resolve(values.lobby))) {
     throw new Error(`Lobby image not found: ${resolve(values.lobby)}`);
   }
+  if (values.commercial && !existsSync(resolve(values.commercial))) {
+    throw new Error(`Commercial clip not found: ${resolve(values.commercial)}`);
+  }
 
   const outputPath = resolve(values.out);
   await mkdir(resolve(values["work-dir"] ?? `${outputPath}.work`), { recursive: true });
@@ -63,6 +70,8 @@ async function main() {
     lobbyImagePath: values.lobby ? resolve(values.lobby) : undefined,
     introSeconds: values["intro-seconds"] ? Number(values["intro-seconds"]) : 4,
     roundClipPaths,
+    commercialPath: values.commercial ? resolve(values.commercial) : undefined,
+    commercialLabel: values["commercial-label"] || "Sponsors",
     outputPath,
     workDir: values["work-dir"] ? resolve(values["work-dir"]) : undefined,
     width: values.width ? Number(values.width) : 3840,

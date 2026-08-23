@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { ThumbnailResult } from "../types";
@@ -10,10 +10,36 @@ type Props = {
   deaths: number;
   rounds: number;
   rating: number | null;
+  matchKind: string | null;
+  eventName: string | null;
+  teamCt: string | null;
+  teamT: string | null;
+  playerSide: string | null;
   workDir: string | null;
   onBack: () => void;
   onRestart: () => void;
 };
+
+function buildMatchup(teamCt: string | null, teamT: string | null, playerSide: string | null) {
+  const ct = teamCt?.trim() || "";
+  const t = teamT?.trim() || "";
+  if (!ct && !t) {
+    return "";
+  }
+  if (ct && !t) {
+    return ct;
+  }
+  if (t && !ct) {
+    return t;
+  }
+  if (playerSide === "CT") {
+    return `${ct} vs ${t}`;
+  }
+  if (playerSide === "T") {
+    return `${t} vs ${ct}`;
+  }
+  return `${ct} vs ${t}`;
+}
 
 export function ThumbnailScreen({
   playerName: initialName,
@@ -22,18 +48,43 @@ export function ThumbnailScreen({
   deaths,
   rounds,
   rating,
+  matchKind,
+  eventName: initialEvent,
+  teamCt,
+  teamT,
+  playerSide,
   workDir,
   onBack,
   onRestart,
 }: Props) {
+  const isTournament = matchKind !== "faceit" && matchKind !== "premier";
   const [photoPath, setPhotoPath] = useState<string | null>(null);
   const [teamLogoPath, setTeamLogoPath] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState(initialName);
   const [score, setScore] = useState(`${kills}-${deaths}`);
+  const [eventName, setEventName] = useState(initialEvent ?? "");
+  const [matchup, setMatchup] = useState(() => buildMatchup(teamCt, teamT, playerSide));
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ThumbnailResult | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const titlePreview = useMemo(() => {
+    const parts = [`${displayName || "Player"} (${score || "0-0"})`, mapName.replace(/^de_/i, ""), "POV"];
+    if (isTournament) {
+      if (eventName.trim()) {
+        parts.push(eventName.trim());
+      }
+      if (matchup.trim()) {
+        parts.push(matchup.trim());
+      }
+    }
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, "0");
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    parts.push(`${day}/${month}/${now.getFullYear()}`);
+    return parts.join(" ");
+  }, [displayName, score, mapName, isTournament, eventName, matchup]);
 
   async function pickPhoto() {
     const selected = await open({
@@ -74,6 +125,9 @@ export function ThumbnailScreen({
           rounds,
           rating,
           score,
+          matchKind: matchKind ?? (isTournament ? "tournament" : null),
+          eventName: isTournament ? eventName.trim() || null : null,
+          matchup: isTournament ? matchup.trim() || null : null,
           workDir,
           outDir: null,
         },
@@ -87,10 +141,8 @@ export function ThumbnailScreen({
   }
 
   async function copyTitle() {
-    if (!result?.title) {
-      return;
-    }
-    await navigator.clipboard.writeText(result.title);
+    const text = result?.title ?? titlePreview;
+    await navigator.clipboard.writeText(text);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1500);
   }
@@ -131,11 +183,7 @@ export function ThumbnailScreen({
               Choisir…
             </button>
             {teamLogoPath && (
-              <button
-                type="button"
-                onClick={() => setTeamLogoPath(null)}
-                disabled={running}
-              >
+              <button type="button" onClick={() => setTeamLogoPath(null)} disabled={running}>
                 Retirer
               </button>
             )}
@@ -160,10 +208,40 @@ export function ThumbnailScreen({
             onChange={(event) => setScore(event.target.value)}
           />
         </label>
+        {isTournament && (
+          <>
+            <label className="option field">
+              <span>Event (ex. BLAST.tv, IEM Rio)</span>
+              <input
+                type="text"
+                value={eventName}
+                disabled={running}
+                placeholder="BLAST.tv"
+                onChange={(event) => setEventName(event.target.value)}
+              />
+            </label>
+            <label className="option field">
+              <span>Matchup (Team A vs Team B)</span>
+              <input
+                type="text"
+                value={matchup}
+                disabled={running}
+                placeholder="Vitality vs Spirit"
+                onChange={(event) => setMatchup(event.target.value)}
+              />
+            </label>
+          </>
+        )}
         <p className="hint">
           Map : <strong>{mapName || "?"}</strong>
-          {rating != null ? ` · HLTV ${rating.toFixed(2)}` : rounds > 0 ? ` · ${rounds} rounds` : ""}{" "}
-          — image tirée au hasard dans le dossier correspondant.
+          {matchKind ? ` · source ${matchKind}` : ""}
+          {rating != null ? ` · HLTV ${rating.toFixed(2)}` : rounds > 0 ? ` · ${rounds} rounds` : ""}
+          {isTournament
+            ? " — titre tournoi = event + équipes."
+            : " — titre FACEIT/Premier sans event."}
+        </p>
+        <p className="hint">
+          Aperçu titre : <strong>{titlePreview}</strong>
         </p>
       </div>
 

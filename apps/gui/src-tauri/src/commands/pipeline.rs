@@ -16,6 +16,9 @@ pub struct PipelineRequest {
     pub rounds: Vec<u32>,
     pub lobby_path: Option<String>,
     pub intro_seconds: Option<f64>,
+    /// Optional commercial / sponsor clip inserted after Round 1 in the final video.
+    pub commercial_path: Option<String>,
+    pub commercial_label: Option<String>,
     pub work_dir: Option<String>,
     /// dry_run = configs + estimated chapters only (no CSDM / no ffmpeg assemble)
     pub dry_run: bool,
@@ -59,7 +62,15 @@ fn format_ts(total_seconds: f64) -> String {
     }
 }
 
-fn estimated_chapters(parse: &Value, steam_id: &str, rounds: &[u32], intro_seconds: f64) -> String {
+fn estimated_chapters(
+    parse: &Value,
+    steam_id: &str,
+    rounds: &[u32],
+    intro_seconds: f64,
+    commercial_after_r1: bool,
+    commercial_seconds: f64,
+    commercial_label: &str,
+) -> String {
     let mut lines = Vec::new();
     let mut cursor = 0.0_f64;
     lines.push(format!("{} Lobby", format_ts(cursor)));
@@ -71,7 +82,7 @@ fn estimated_chapters(parse: &Value, steam_id: &str, rounds: &[u32], intro_secon
         .cloned()
         .unwrap_or_default();
 
-    for round_number in rounds {
+    for (index, round_number) in rounds.iter().enumerate() {
         let row = player_rounds.iter().find(|entry| {
             entry.get("steam_id").and_then(|v| v.as_str()) == Some(steam_id)
                 && entry.get("round_number").and_then(|v| v.as_u64()) == Some(u64::from(*round_number))
@@ -82,6 +93,11 @@ fn estimated_chapters(parse: &Value, steam_id: &str, rounds: &[u32], intro_secon
             .unwrap_or(30.0);
         lines.push(format!("{} Round {round_number}", format_ts(cursor)));
         cursor += duration;
+
+        if commercial_after_r1 && index == 0 {
+            lines.push(format!("{} {commercial_label}", format_ts(cursor)));
+            cursor += commercial_seconds.max(1.0);
+        }
     }
     lines.join("\n")
 }
@@ -261,8 +277,40 @@ fn run_pipeline_inner(app: AppHandle, request: PipelineRequest) -> Result<Pipeli
     );
 
     let intro_seconds = request.intro_seconds.unwrap_or(4.0);
-    let mut chapters_text =
-        estimated_chapters(&request.parse_result, &request.steam_id, &request.rounds, intro_seconds);
+    let commercial_label = request
+        .commercial_label
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or("Sponsors")
+        .to_string();
+    let commercial_path = request.commercial_path.as_ref().and_then(|path| {
+        let p = PathBuf::from(path);
+        if p.is_file() {
+            Some(to_node_path(p))
+        } else {
+            None
+        }
+    });
+    if let Some(path) = &request.commercial_path {
+        if commercial_path.is_none() {
+            emit_log(
+                &app,
+                &mut logs,
+                format!("Commercial clip not found (ignored): {path}"),
+            );
+        }
+    }
+    let has_commercial = commercial_path.is_some();
+    let mut chapters_text = estimated_chapters(
+        &request.parse_result,
+        &request.steam_id,
+        &request.rounds,
+        intro_seconds,
+        has_commercial,
+        15.0,
+        &commercial_label,
+    );
     let mut video_path: Option<String> = None;
     let chapters_path: Option<String>;
     let mut mode = if request.dry_run {
@@ -334,6 +382,21 @@ fn run_pipeline_inner(app: AppHandle, request: PipelineRequest) -> Result<Pipeli
                 &app,
                 &mut logs,
                 "No lobby screenshot provided — assembling rounds only (no intro).",
+            );
+        }
+        if let Some(commercial) = &commercial_path {
+            assemble_args.push(OsString::from("--commercial"));
+            assemble_args.push(commercial.as_os_str().to_os_string());
+            assemble_args.push(OsString::from("--commercial-label"));
+            assemble_args.push(OsString::from(&commercial_label));
+            emit_log(
+                &app,
+                &mut logs,
+                format!(
+                    "Commercial placement after Round 1: {} ({})",
+                    commercial.display(),
+                    commercial_label
+                ),
             );
         }
 

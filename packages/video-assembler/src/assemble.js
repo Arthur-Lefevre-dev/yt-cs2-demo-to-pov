@@ -148,12 +148,14 @@ export async function concatClips({
 }
 
 /**
- * Full assemble: optional intro image + round clips → one mp4.
+ * Full assemble: optional intro + rounds, with optional commercial after round 1.
  */
 export async function assembleVideo({
   lobbyImagePath,
   introSeconds = 4,
   roundClipPaths,
+  commercialPath,
+  commercialLabel = "Sponsors",
   outputPath,
   workDir,
   width = 3840,
@@ -172,6 +174,8 @@ export async function assembleVideo({
 
   /** @type {string[]} */
   const normalized = [];
+  /** @type {Array<"intro" | "round" | "commercial">} */
+  const clipKinds = [];
 
   if (lobbyImagePath) {
     const introPath = join(dir, "00-intro.mp4");
@@ -186,8 +190,10 @@ export async function assembleVideo({
       onLog,
     });
     normalized.push(introPath);
+    clipKinds.push("intro");
   }
 
+  const hasCommercial = Boolean(commercialPath);
   for (let index = 0; index < roundClipPaths.length; index += 1) {
     const input = roundClipPaths[index];
     const name = basename(input).replace(/\.[^.]+$/, "") || `round-${index + 1}`;
@@ -202,6 +208,23 @@ export async function assembleVideo({
       onLog,
     });
     normalized.push(normalizedPath);
+    clipKinds.push("round");
+
+    // Insert commercial placement after the first round clip.
+    if (hasCommercial && index === 0) {
+      const adPath = join(dir, "01b-commercial.mp4");
+      await normalizeClip({
+        inputPath: commercialPath,
+        outputPath: adPath,
+        width,
+        height,
+        framerate,
+        ffmpegPath,
+        onLog,
+      });
+      normalized.push(adPath);
+      clipKinds.push("commercial");
+    }
   }
 
   await concatClips({
@@ -216,7 +239,10 @@ export async function assembleVideo({
     outputPath: out,
     workDir: dir,
     clipPaths: normalized,
+    clipKinds,
     introIncluded: Boolean(lobbyImagePath),
     introSeconds: lobbyImagePath ? introSeconds : 0,
+    commercialIncluded: hasCommercial,
+    commercialLabel: hasCommercial ? commercialLabel : null,
   };
 }

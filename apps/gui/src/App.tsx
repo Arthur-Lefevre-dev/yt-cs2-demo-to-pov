@@ -33,6 +33,8 @@ function App() {
   const [dryRun, setDryRun] = useState(true);
   const [runCsdm, setRunCsdm] = useState(false);
   const [introSeconds, setIntroSeconds] = useState(4);
+  const [commercialPath, setCommercialPath] = useState<string | null>(null);
+  const [commercialLabel, setCommercialLabel] = useState("Sponsors");
   const [pipelineRunning, setPipelineRunning] = useState(false);
   const [pipelineError, setPipelineError] = useState<string | null>(null);
   const [pipelineLogs, setPipelineLogs] = useState<string[]>([]);
@@ -142,6 +144,8 @@ function App() {
           rounds: selectedRounds,
           lobbyPath,
           introSeconds,
+          commercialPath,
+          commercialLabel,
           dryRun,
           runCsdm: dryRun ? false : runCsdm,
           roundClipPaths: null,
@@ -168,6 +172,8 @@ function App() {
     setPipelineError(null);
     setDryRun(true);
     setRunCsdm(false);
+    setCommercialPath(null);
+    setCommercialLabel("Sponsors");
   }
 
   return (
@@ -286,6 +292,8 @@ function App() {
             dryRun={dryRun}
             runCsdm={runCsdm}
             introSeconds={introSeconds}
+            commercialPath={commercialPath}
+            commercialLabel={commercialLabel}
             csdmReady={Boolean(prerequisites?.items.find((i) => i.id === "csdm")?.found)}
             csdmPath={prerequisites?.items.find((i) => i.id === "csdm")?.path ?? null}
             logs={pipelineLogs}
@@ -304,6 +312,8 @@ function App() {
               }
             }}
             onIntroSecondsChange={setIntroSeconds}
+            onCommercialPathChange={setCommercialPath}
+            onCommercialLabelChange={setCommercialLabel}
             onLogsOpenChange={setLogsOpen}
             onStart={() => void handlePipeline()}
             onBack={() => setScreen("rounds")}
@@ -325,6 +335,14 @@ function App() {
             deaths={selectedPlayer.deaths}
             rounds={parseResult?.rounds?.length ?? 0}
             rating={selectedPlayer.hltv_rating ?? null}
+            matchKind={parseResult?.match_kind ?? null}
+            eventName={parseResult?.event_name ?? null}
+            teamCt={parseResult?.team_ct ?? null}
+            teamT={parseResult?.team_t ?? null}
+            playerSide={
+              parseResult?.player_rounds.find((row) => row.steam_id === selectedPlayer.steam_id)
+                ?.player_side ?? null
+            }
             workDir={pipelineResult?.workDir ?? null}
             onBack={() => setScreen("result")}
             onRestart={restartJob}

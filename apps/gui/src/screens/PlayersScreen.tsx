@@ -37,6 +37,7 @@ export function PlayersScreen({
         <p className="lede">
           {result.map ?? "map ?"} · tickrate {result.tickrate ?? "?"} ·{" "}
           {result.rounds.length} rounds · {result.players.length} joueurs
+          {result.match_kind ? ` · ${result.match_kind}` : ""}
           {result.server_name ? ` · ${result.server_name}` : ""}
         </p>
       </header>

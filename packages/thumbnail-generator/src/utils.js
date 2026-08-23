@@ -130,14 +130,45 @@ export function formatRatingLabel(rating) {
 }
 
 /**
- * YouTube title: NAME (SCORE) MAP POV DATE
- * @param {{ playerName: string, score: string, mapLabel: string, date?: Date }} input
+ * YouTube title:
+ * - FACEIT / Premier: NAME (SCORE) MAP POV DATE
+ * - Tournament: NAME (SCORE) MAP POV EVENT TeamA vs TeamB DATE
+ * @param {{
+ *   playerName: string,
+ *   score: string,
+ *   mapLabel: string,
+ *   date?: Date,
+ *   matchKind?: string | null,
+ *   eventName?: string | null,
+ *   matchup?: string | null,
+ * }} input
  */
-export function buildYoutubeTitle({ playerName, score, mapLabel, date = new Date() }) {
+export function buildYoutubeTitle({
+  playerName,
+  score,
+  mapLabel,
+  date = new Date(),
+  matchKind = null,
+  eventName = null,
+  matchup = null,
+}) {
   const day = String(date.getDate()).padStart(2, "0");
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const year = date.getFullYear();
-  return `${playerName} (${score}) ${mapLabel} POV ${day}/${month}/${year}`;
+  const parts = [`${playerName} (${score})`, mapLabel, "POV"];
+
+  const isLobby = matchKind === "faceit" || matchKind === "premier";
+  if (!isLobby) {
+    if (eventName && String(eventName).trim()) {
+      parts.push(String(eventName).trim());
+    }
+    if (matchup && String(matchup).trim()) {
+      parts.push(String(matchup).trim());
+    }
+  }
+
+  parts.push(`${day}/${month}/${year}`);
+  return parts.join(" ");
 }
 
 /**

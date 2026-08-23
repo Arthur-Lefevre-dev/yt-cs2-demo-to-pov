@@ -11,6 +11,12 @@ import {
   normalizeSteamId,
   sideFromTeamNum,
 } from "./rounds.js";
+import {
+  detectMatchKind,
+  dominantClanForSide,
+  formatMatchup,
+  inferEventName,
+} from "./match-meta.js";
 
 const EVENT_NAMES = [
   "begin_new_match",
@@ -72,8 +78,11 @@ function sampleSidesAtTicks(demoPath, ticks) {
     return [];
   }
   const rows =
-    parseTicks(demoPath, ["team_num", "team_name", "health", "name", "user_id", "entity_id"], ticks) ??
-    [];
+    parseTicks(
+      demoPath,
+      ["team_num", "team_name", "team_clan_name", "clan_name", "health", "name", "user_id", "entity_id"],
+      ticks,
+    ) ?? [];
   return Array.isArray(rows) ? rows : [];
 }
 
@@ -250,11 +259,29 @@ export function parseDemo(demoPath, options = {}) {
     throw new Error(`Player ${selectedSteamId} not found in demo roster`);
   }
 
+  const serverName = header.server_name ?? header.servername ?? null;
+  const matchKind = detectMatchKind(serverName, absolutePath);
+  const teamT = dominantClanForSide(tickRows, 2);
+  const teamCt = dominantClanForSide(tickRows, 3);
+  const eventName = matchKind === "tournament" ? inferEventName(absolutePath, serverName) : null;
+
+  // Prefer first official round side of selected player for "A vs B" order.
+  let playerSide = null;
+  if (selectedSteamId) {
+    const firstRound = filteredRounds[0];
+    playerSide = firstRound?.player_side ?? null;
+  }
+
   return {
     demo_path: absolutePath,
     map: header.map_name ?? header.mapname ?? null,
     tickrate,
-    server_name: header.server_name ?? header.servername ?? null,
+    server_name: serverName,
+    match_kind: matchKind,
+    event_name: eventName,
+    team_ct: teamCt,
+    team_t: teamT,
+    matchup: matchKind === "tournament" ? formatMatchup({ teamCt, teamT, playerSide }) : null,
     match_start_tick: matchStartTick,
     players: selectedSteamId ? players.filter((player) => player.steam_id === selectedSteamId) : players,
     rounds: rounds.map((round) => ({

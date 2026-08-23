@@ -15,7 +15,7 @@ fixtures/thumbnails/teams/
 ## Règles
 
 - Format conseillé : **PNG avec transparence**
-- Le générateur affiche le logo en **grande taille** (~85 % de la hauteur), **à gauche derrière le joueur**, à **~32 % d'opacité**
+- Le générateur affiche le logo en **grande taille** (~105 % de la hauteur), **à gauche derrière le joueur** (filigrane style POV), à **~40 % d'opacité**
 - Optionnel : tu peux aussi choisir n'importe quel fichier via le bouton « Logo équipe » dans l'étape Miniatures
 
-Le calque final : fond map → **logo équipe (gauche)** → photo joueur → texte.
+Le calque final : fond map → **logo équipe (gauche, derrière)** → photo joueur → texte.

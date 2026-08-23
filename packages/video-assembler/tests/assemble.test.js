@@ -77,12 +77,33 @@ describe("video-assembler integration", () => {
 
       assert.equal(assembled.clipPaths.length, 3);
       assert.equal(assembled.introIncluded, true);
+      assert.deepEqual(assembled.clipKinds, ["intro", "round", "round"]);
 
       const chapters = await chaptersFromAssembleResult(assembled);
       assert.match(chapters.text, /^0:00 Lobby\n/);
       assert.match(chapters.text, /Round 1/);
       assert.match(chapters.text, /Round 2/);
       assert.ok(chapters.totalSeconds >= 4);
+
+      const ad = join(dir, "ad-src.mp4");
+      await makeColorClip(ad, { color: "yellow", seconds: 0.8, ffmpeg });
+      const withAd = await assembleVideo({
+        lobbyImagePath: lobby,
+        introSeconds: 1,
+        roundClipPaths: [round1, round2],
+        commercialPath: ad,
+        commercialLabel: "Sponsors",
+        outputPath: join(dir, "final-ad.mp4"),
+        workDir: join(dir, "work-ad"),
+        width: 1280,
+        height: 720,
+        framerate: 30,
+        ffmpegPath: ffmpeg,
+      });
+      assert.deepEqual(withAd.clipKinds, ["intro", "round", "commercial", "round"]);
+      assert.equal(withAd.commercialIncluded, true);
+      const adChapters = await chaptersFromAssembleResult(withAd);
+      assert.match(adChapters.text, /Sponsors/);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

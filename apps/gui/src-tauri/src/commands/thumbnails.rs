@@ -17,6 +17,9 @@ pub struct ThumbnailRequest {
     pub rounds: Option<u32>,
     pub rating: Option<f64>,
     pub score: Option<String>,
+    pub match_kind: Option<String>,
+    pub event_name: Option<String>,
+    pub matchup: Option<String>,
     pub out_dir: Option<String>,
     pub work_dir: Option<String>,
 }
@@ -93,6 +96,24 @@ pub fn generate_thumbnails(request: ThumbnailRequest) -> Result<ThumbnailResult,
         }
         args.push(OsString::from("--team-logo"));
         args.push(logo.as_os_str().to_os_string());
+    }
+    if let Some(kind) = &request.match_kind {
+        if !kind.trim().is_empty() {
+            args.push(OsString::from("--match-kind"));
+            args.push(OsString::from(kind.trim()));
+        }
+    }
+    if let Some(event) = &request.event_name {
+        if !event.trim().is_empty() {
+            args.push(OsString::from("--event"));
+            args.push(OsString::from(event.trim()));
+        }
+    }
+    if let Some(matchup) = &request.matchup {
+        if !matchup.trim().is_empty() {
+            args.push(OsString::from("--matchup"));
+            args.push(OsString::from(matchup.trim()));
+        }
     }
 
     let output = run_node_cli("packages/thumbnail-generator/src/cli.js", &args)?;

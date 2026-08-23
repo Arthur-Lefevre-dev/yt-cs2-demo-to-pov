@@ -58,6 +58,11 @@ export type ParseResult = {
   map: string | null;
   tickrate: number | null;
   server_name: string | null;
+  match_kind?: "faceit" | "premier" | "tournament" | string | null;
+  event_name?: string | null;
+  team_ct?: string | null;
+  team_t?: string | null;
+  matchup?: string | null;
   match_start_tick: number;
   players: DemoPlayer[];
   rounds: DemoRound[];

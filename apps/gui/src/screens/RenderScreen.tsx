@@ -1,8 +1,12 @@
+import { open } from "@tauri-apps/plugin-dialog";
+
 type Props = {
   running: boolean;
   dryRun: boolean;
   runCsdm: boolean;
   introSeconds: number;
+  commercialPath: string | null;
+  commercialLabel: string;
   csdmReady: boolean;
   csdmPath: string | null;
   logs: string[];
@@ -11,6 +15,8 @@ type Props = {
   onDryRunChange: (value: boolean) => void;
   onRunCsdmChange: (value: boolean) => void;
   onIntroSecondsChange: (value: number) => void;
+  onCommercialPathChange: (value: string | null) => void;
+  onCommercialLabelChange: (value: string) => void;
   onLogsOpenChange: (value: boolean) => void;
   onStart: () => void;
   onBack: () => void;
@@ -21,6 +27,8 @@ export function RenderScreen({
   dryRun,
   runCsdm,
   introSeconds,
+  commercialPath,
+  commercialLabel,
   csdmReady,
   csdmPath,
   logs,
@@ -29,10 +37,22 @@ export function RenderScreen({
   onDryRunChange,
   onRunCsdmChange,
   onIntroSecondsChange,
+  onCommercialPathChange,
+  onCommercialLabelChange,
   onLogsOpenChange,
   onStart,
   onBack,
 }: Props) {
+  async function pickCommercial() {
+    const selected = await open({
+      multiple: false,
+      filters: [{ name: "Vidéo", extensions: ["mp4", "mov", "mkv", "webm"] }],
+    });
+    if (typeof selected === "string") {
+      onCommercialPathChange(selected);
+    }
+  }
+
   return (
     <section className="screen">
       <header className="screen-header">
@@ -108,6 +128,40 @@ export function RenderScreen({
             onChange={(event) => onIntroSecondsChange(Number(event.target.value) || 4)}
           />
         </label>
+        <label className="option field">
+          <span>Placement commercial (après Round 1)</span>
+          <div className="inline-actions">
+            <button type="button" onClick={() => void pickCommercial()} disabled={running}>
+              Choisir vidéo…
+            </button>
+            {commercialPath && (
+              <button
+                type="button"
+                onClick={() => onCommercialPathChange(null)}
+                disabled={running}
+              >
+                Retirer
+              </button>
+            )}
+            <code className="path">{commercialPath ?? "aucun"}</code>
+          </div>
+          <em className="hint" style={{ display: "block", marginTop: "0.35rem" }}>
+            MP4/MOV optionnel, normalisé en 4K60 et inséré juste après le 1er round
+            dans le final + chapitre YouTube.
+          </em>
+        </label>
+        {commercialPath && (
+          <label className="option field">
+            <span>Label chapitre commercial</span>
+            <input
+              type="text"
+              value={commercialLabel}
+              disabled={running}
+              placeholder="Sponsors"
+              onChange={(event) => onCommercialLabelChange(event.target.value)}
+            />
+          </label>
+        )}
       </div>
 
       {running && <p className="status">Pipeline en cours…</p>}

@@ -77,17 +77,31 @@ export async function buildChapters(clips, { ffprobePath } = {}) {
 }
 
 /**
- * Convenience: intro + Round N labels from assembler result paths.
+ * Convenience: intro + Round N (+ optional Sponsors after R1) from assembler result.
  */
 export async function chaptersFromAssembleResult(assembleResult, { ffprobePath, roundLabels } = {}) {
   /** @type {ChapterClip[]} */
   const clips = [];
   const paths = assembleResult.clipPaths ?? [];
+  const kinds = assembleResult.clipKinds;
+  const commercialLabel = assembleResult.commercialLabel || "Sponsors";
   let roundIndex = 0;
+
   for (let i = 0; i < paths.length; i += 1) {
     const path = paths[i];
-    if (assembleResult.introIncluded && i === 0) {
+    const kind =
+      Array.isArray(kinds) && kinds[i]
+        ? kinds[i]
+        : assembleResult.introIncluded && i === 0
+          ? "intro"
+          : "round";
+
+    if (kind === "intro") {
       clips.push({ label: "Lobby", path });
+      continue;
+    }
+    if (kind === "commercial") {
+      clips.push({ label: commercialLabel, path });
       continue;
     }
     const label = roundLabels?.[roundIndex] ?? `Round ${roundIndex + 1}`;
