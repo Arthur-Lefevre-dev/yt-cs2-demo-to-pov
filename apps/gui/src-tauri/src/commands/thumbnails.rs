@@ -1,5 +1,6 @@
 use super::sidecar::{
-    default_thumbnails_out_dir, run_node_cli, thumbnails_maps_root, to_node_path,
+    default_thumbnails_out_dir, run_node_cli, thumbnails_brand_root, thumbnails_maps_root,
+    to_node_path,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -12,6 +13,7 @@ use std::path::PathBuf;
 pub struct ThumbnailRequest {
     pub player_photo_path: String,
     pub team_logo_path: Option<String>,
+    pub show_brand_logo: Option<bool>,
     pub player_name: String,
     pub map_name: String,
     pub kills: Option<u32>,
@@ -22,8 +24,18 @@ pub struct ThumbnailRequest {
     pub match_kind: Option<String>,
     pub event_name: Option<String>,
     pub matchup: Option<String>,
+    pub background_paths: Option<Vec<String>>,
     pub out_dir: Option<String>,
     pub work_dir: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProposeScreenshotsRequest {
+    pub work_dir: String,
+    pub video_path: Option<String>,
+    pub out_dir: Option<String>,
+    pub count: Option<u32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -34,6 +46,74 @@ pub struct ThumbnailResult {
     pub map_label: String,
     pub out_dir: String,
     pub variants: Value,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProposeScreenshotsResult {
+    pub out_dir: String,
+    pub count: u32,
+    pub proposals: Value,
+}
+
+#[tauri::command]
+pub fn propose_thumbnail_screenshots(
+    request: ProposeScreenshotsRequest,
+) -> Result<ProposeScreenshotsResult, String> {
+    if !cfg!(target_os = "windows") {
+        return Err("This app only supports Windows.".into());
+    }
+
+    let work_dir = to_node_path(PathBuf::from(&request.work_dir));
+    if !work_dir.is_dir() {
+        return Err(format!("Work dir not found: {}", request.work_dir));
+    }
+
+    let out_dir = to_node_path(match &request.out_dir {
+        Some(path) => PathBuf::from(path),
+        None => work_dir.join("thumbnail-proposals"),
+    });
+    fs::create_dir_all(&out_dir).map_err(|err| format!("Cannot create proposals dir: {err}"))?;
+
+    let mut args = vec![
+        OsString::from("--work-dir"),
+        work_dir.as_os_str().to_os_string(),
+        OsString::from("--out-dir"),
+        out_dir.as_os_str().to_os_string(),
+        OsString::from("--count"),
+        OsString::from(request.count.unwrap_or(10).to_string()),
+    ];
+    if let Some(video) = &request.video_path {
+        let path = to_node_path(PathBuf::from(video));
+        if path.is_file() {
+            args.push(OsString::from("--video"));
+            args.push(path.as_os_str().to_os_string());
+        }
+    }
+
+    let output = run_node_cli("packages/thumbnail-generator/src/propose-screenshots.js", &args)?;
+    let parsed: Value = serde_json::from_str(output.stdout.trim()).map_err(|err| {
+        format!(
+            "Failed to parse screenshot proposals JSON: {err}\n{}",
+            output.stdout.chars().take(400).collect::<String>()
+        )
+    })?;
+
+    Ok(ProposeScreenshotsResult {
+        out_dir: parsed
+            .get("outDir")
+            .and_then(|v| v.as_str())
+            .map(str::to_string)
+            .unwrap_or_else(|| to_node_path(&out_dir).display().to_string()),
+        count: parsed
+            .get("count")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as u32,
+        proposals: parsed
+            .get("proposals")
+            .cloned()
+            .unwrap_or_else(|| Value::Array(vec![])),
+    })
 }
 
 #[tauri::command]
@@ -55,6 +135,7 @@ pub fn generate_thumbnails(request: ThumbnailRequest) -> Result<ThumbnailResult,
     fs::create_dir_all(&out_dir).map_err(|err| format!("Cannot create thumbnails dir: {err}"))?;
 
     let maps_root = thumbnails_maps_root();
+    let brand_root = thumbnails_brand_root();
 
     let mut args = vec![
         OsString::from("--player-photo"),
@@ -67,7 +148,12 @@ pub fn generate_thumbnails(request: ThumbnailRequest) -> Result<ThumbnailResult,
         out_dir.as_os_str().to_os_string(),
         OsString::from("--maps-root"),
         maps_root.as_os_str().to_os_string(),
+        OsString::from("--brand-root"),
+        brand_root.as_os_str().to_os_string(),
     ];
+    if request.show_brand_logo == Some(false) {
+        args.push(OsString::from("--no-4k-logo"));
+    }
     if let Some(kills) = request.kills {
         args.push(OsString::from("--kills"));
         args.push(OsString::from(kills.to_string()));
@@ -97,6 +183,16 @@ pub fn generate_thumbnails(request: ThumbnailRequest) -> Result<ThumbnailResult,
         }
         args.push(OsString::from("--team-logo"));
         args.push(logo.as_os_str().to_os_string());
+    }
+    if let Some(backgrounds) = &request.background_paths {
+        for path in backgrounds.iter().take(3) {
+            let bg = to_node_path(PathBuf::from(path));
+            if !bg.is_file() {
+                return Err(format!("Screenshot background not found: {path}"));
+            }
+            args.push(OsString::from("--background"));
+            args.push(bg.as_os_str().to_os_string());
+        }
     }
     if let Some(kind) = &request.match_kind {
         if !kind.trim().is_empty() {

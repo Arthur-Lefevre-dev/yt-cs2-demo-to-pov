@@ -18,12 +18,19 @@ const W = 1920;
 const H = 1080;
 /** Layout scale vs legacy 1280×720 canvas. */
 const S = W / 1280;
-/** Horizontal center for the text column (right of the player cutout). */
-const TEXT_X = Math.round(900 * S);
-/** Player cutout fills most of the left side without covering the text block. */
-const PLAYER_WIDTH_RATIO = 0.54;
+/** Horizontal center of the text block (red zone — may overlap the player). */
+const TEXT_X = Math.round(W * 0.62);
+/** Player cutout on the left; text may overlap the right side of the figure. */
+const PLAYER_WIDTH_RATIO = 0.5;
 const PLAYER_HEIGHT_RATIO = 1;
-const PLAYER_LEFT = Math.round(8 * S);
+const PLAYER_LEFT = Math.round(4 * S);
+/** Fixed 4K badge — top-left (blue zone). */
+const BRAND_LOGO_NAMES = ["4k-logo.png", "4k-logo.webp", "4k-logo.jpg", "4k-logo.jpeg", "4k-logo.svg"];
+const BRAND_LOGO_MAX_W = Math.round(W * 0.2);
+const BRAND_LOGO_MAX_H = Math.round(H * 0.15);
+/** Top-left corner — keep flush left (blue zone). */
+const BRAND_LOGO_LEFT = Math.round(4 * S);
+const BRAND_LOGO_TOP = Math.round(16 * S);
 /** Large watermark behind the player — left side of the frame (see POV thumbnail refs). */
 const TEAM_LOGO_SIZE_RATIO = 1.05;
 const TEAM_LOGO_OPACITY = 0.4;
@@ -243,26 +250,86 @@ function splitKillDeath(score) {
 }
 
 /**
- * @param {string | null | undefined} matchup
- * @param {string | null | undefined} matchKind
+ * Bottom context line on the thumbnail:
+ * - FACEIT → "FACEIT POV"
+ * - Premier → "PREMIER POV"
+ * - Tournament → event name, else matchup
+ * @param {{
+ *   matchKind?: string | null,
+ *   eventName?: string | null,
+ *   matchup?: string | null,
+ * }} input
  */
-function resolveThumbMatchup(matchup, matchKind) {
-  if (matchKind === "faceit" || matchKind === "premier") {
-    return null;
+export function resolveThumbContextLine({ matchKind, eventName, matchup } = {}) {
+  const kind = String(matchKind ?? "").toLowerCase();
+  if (kind === "faceit") {
+    return "FACEIT POV";
   }
-  const text = matchup?.trim();
-  return text || null;
+  if (kind === "premier") {
+    return "PREMIER POV";
+  }
+  const event = eventName?.trim();
+  if (event) {
+    return event;
+  }
+  const teams = matchup?.trim();
+  return teams || null;
+}
+
+/**
+ * Resolve the fixed 4K badge from a brand assets folder.
+ * @param {string | null | undefined} brandRoot
+ * @param {string | null | undefined} mapsRoot used to infer sibling `brand/` folder
+ */
+export function resolveBrandLogoPath(brandRoot, mapsRoot) {
+  const roots = [];
+  if (brandRoot) {
+    roots.push(resolve(brandRoot));
+  }
+  if (mapsRoot) {
+    roots.push(resolve(mapsRoot, "..", "brand"));
+  }
+  for (const root of roots) {
+    for (const name of BRAND_LOGO_NAMES) {
+      const candidate = join(root, name);
+      if (existsSync(candidate)) {
+        return candidate;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Fixed 4K / brand mark in the top-left corner (blue zone).
+ * @param {string} brandLogoPath
+ */
+async function prepareBrandLogo(brandLogoPath) {
+  const buf = await sharp(brandLogoPath)
+    .rotate()
+    .resize(BRAND_LOGO_MAX_W, BRAND_LOGO_MAX_H, {
+      fit: "contain",
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .ensureAlpha()
+    .png()
+    .toBuffer();
+  return {
+    buffer: buf,
+    left: BRAND_LOGO_LEFT,
+    top: BRAND_LOGO_TOP,
+  };
 }
 
 /**
  * Style A — gold name + red kills (ZywOo-like).
  */
-function svgStyleGoldKills({ playerName, score, ratingLabel, mapLabel, matchup }) {
+function svgStyleGoldKills({ playerName, score, ratingLabel, mapLabel, contextLine }) {
   const name = escapeXml(playerName.toUpperCase());
   const { left, right } = splitKillDeath(score);
   const kills = escapeXml(left);
   const second = right != null ? `-${escapeXml(right)}` : "";
-  const hasMatchup = Boolean(matchup);
+  const hasContext = Boolean(contextLine);
   return Buffer.from(`
 <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -274,16 +341,16 @@ function svgStyleGoldKills({ playerName, score, ratingLabel, mapLabel, matchup }
     </linearGradient>
   </defs>
   <g filter="url(#s)" font-family="Impact, Arial Black, sans-serif" font-weight="900">
-    <text x="${TEXT_X}" y="${hasMatchup ? Math.round(170 * S) : Math.round(210 * S)}" text-anchor="middle" fill="url(#gold)" font-size="${hasMatchup ? Math.round(150 * S) : Math.round(190 * S)}" stroke="#1a1200" stroke-width="${Math.round(12 * S)}" paint-order="stroke fill">${name}</text>
-    <text x="${TEXT_X}" y="${hasMatchup ? Math.round(300 * S) : Math.round(360 * S)}" text-anchor="middle" font-size="${hasMatchup ? Math.round(120 * S) : Math.round(148 * S)}" stroke="#1a0000" stroke-width="${Math.round(10 * S)}" paint-order="stroke fill">
+    <text x="${TEXT_X}" y="${hasContext ? 340 : 370}" text-anchor="middle" fill="url(#gold)" font-size="${hasContext ? 250 : 290}" stroke="#1a1200" stroke-width="18" paint-order="stroke fill">${name}</text>
+    <text x="${TEXT_X}" y="${hasContext ? 550 : 600}" text-anchor="middle" font-size="${hasContext ? 210 : 240}" stroke="#1a0000" stroke-width="16" paint-order="stroke fill">
       <tspan fill="#ff2a2a">${kills}</tspan>
       <tspan fill="#ffffff">${second}</tspan>
     </text>
-    <text x="${TEXT_X}" y="${hasMatchup ? Math.round(390 * S) : Math.round(460 * S)}" text-anchor="middle" fill="#ffffff" font-size="${hasMatchup ? Math.round(72 * S) : Math.round(92 * S)}" stroke="#000" stroke-width="${Math.round(8 * S)}" paint-order="stroke fill">${escapeXml(ratingLabel)}</text>
-    <text x="${TEXT_X}" y="${hasMatchup ? Math.round(480 * S) : Math.round(560 * S)}" text-anchor="middle" fill="#ffffff" font-size="${hasMatchup ? Math.round(58 * S) : Math.round(72 * S)}" stroke="#000" stroke-width="${Math.round(8 * S)}" paint-order="stroke fill">${escapeXml(mapLabel.toUpperCase())}</text>
+    <text x="${TEXT_X}" y="${hasContext ? 695 : 770}" text-anchor="middle" fill="#ffffff" font-size="${hasContext ? 110 : 130}" stroke="#000" stroke-width="12" paint-order="stroke fill">${escapeXml(ratingLabel)}</text>
+    <text x="${TEXT_X}" y="${hasContext ? 830 : 940}" text-anchor="middle" fill="#ffffff" font-size="${hasContext ? 95 : 115}" stroke="#000" stroke-width="12" paint-order="stroke fill">${escapeXml(mapLabel.toUpperCase())}</text>
     ${
-      hasMatchup
-        ? `<text x="${TEXT_X}" y="${Math.round(580 * S)}" text-anchor="middle" fill="#f5c518" font-size="${Math.round(52 * S)}" stroke="#000" stroke-width="${Math.round(7 * S)}" paint-order="stroke fill">${escapeXml(matchup)}</text>`
+      hasContext
+        ? `<text x="${TEXT_X}" y="980" text-anchor="middle" fill="#f5c518" font-size="90" stroke="#000" stroke-width="11" paint-order="stroke fill">${escapeXml(contextLine)}</text>`
         : ""
     }
   </g>
@@ -293,21 +360,21 @@ function svgStyleGoldKills({ playerName, score, ratingLabel, mapLabel, matchup }
 /**
  * Style B — white stack + yellow accents (ropz-like).
  */
-function svgStyleStack({ playerName, score, ratingLabel, mapLabel, matchup }) {
+function svgStyleStack({ playerName, score, ratingLabel, mapLabel, contextLine }) {
   const name = escapeXml(playerName);
-  const hasMatchup = Boolean(matchup);
+  const hasContext = Boolean(contextLine);
   return Buffer.from(`
 <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
-  <defs>${textShadowFilter("s", Math.round(3 * S), Math.round(3 * S))}</defs>
+  <defs>${textShadowFilter("s", 6, 6)}</defs>
   <g filter="url(#s)" font-family="Arial Black, Impact, sans-serif" font-weight="900" fill="#fff" stroke="#000"
-     stroke-width="${Math.round(10 * S)}" paint-order="stroke fill">
-    <text x="${TEXT_X}" y="${hasMatchup ? Math.round(150 * S) : Math.round(180 * S)}" text-anchor="middle" font-size="${hasMatchup ? Math.round(120 * S) : Math.round(148 * S)}">${name}</text>
-    <text x="${TEXT_X}" y="${hasMatchup ? Math.round(270 * S) : Math.round(320 * S)}" text-anchor="middle" font-size="${hasMatchup ? Math.round(100 * S) : Math.round(124 * S)}">${escapeXml(score)}</text>
-    <text x="${TEXT_X}" y="${hasMatchup ? Math.round(360 * S) : Math.round(420 * S)}" text-anchor="middle" font-size="${hasMatchup ? Math.round(56 * S) : Math.round(68 * S)}" fill="#f5c518" stroke="#000">${escapeXml(ratingLabel)}</text>
-    <text x="${TEXT_X}" y="${hasMatchup ? Math.round(450 * S) : Math.round(520 * S)}" text-anchor="middle" font-size="${hasMatchup ? Math.round(52 * S) : Math.round(64 * S)}" fill="#f5c518" stroke="#000">${escapeXml(mapLabel)} POV</text>
+     stroke-width="16" paint-order="stroke fill">
+    <text x="${TEXT_X}" y="${hasContext ? 320 : 350}" text-anchor="middle" font-size="${hasContext ? 220 : 260}">${name}</text>
+    <text x="${TEXT_X}" y="${hasContext ? 520 : 570}" text-anchor="middle" font-size="${hasContext ? 190 : 220}">${escapeXml(score)}</text>
+    <text x="${TEXT_X}" y="${hasContext ? 665 : 740}" text-anchor="middle" font-size="${hasContext ? 100 : 115}" fill="#f5c518" stroke="#000">${escapeXml(ratingLabel)}</text>
+    <text x="${TEXT_X}" y="${hasContext ? 800 : 910}" text-anchor="middle" font-size="${hasContext ? 95 : 110}" fill="#f5c518" stroke="#000">${escapeXml(mapLabel)} POV</text>
     ${
-      hasMatchup
-        ? `<text x="${TEXT_X}" y="${Math.round(550 * S)}" text-anchor="middle" font-size="${Math.round(48 * S)}" fill="#f5c518" stroke="#000">${escapeXml(matchup)}</text>`
+      hasContext
+        ? `<text x="${TEXT_X}" y="960" text-anchor="middle" font-size="88" fill="#f5c518" stroke="#000">${escapeXml(contextLine)}</text>`
         : ""
     }
   </g>
@@ -317,21 +384,21 @@ function svgStyleStack({ playerName, score, ratingLabel, mapLabel, matchup }) {
 /**
  * Style C — big white italic name + score (m0NESY-like).
  */
-function svgStyleItalic({ playerName, score, ratingLabel, mapLabel, matchup }) {
+function svgStyleItalic({ playerName, score, ratingLabel, mapLabel, contextLine }) {
   const name = escapeXml(playerName.toUpperCase());
-  const hasMatchup = Boolean(matchup);
+  const hasContext = Boolean(contextLine);
   return Buffer.from(`
 <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
-  <defs>${textShadowFilter("s", Math.round(5 * S), Math.round(5 * S))}</defs>
+  <defs>${textShadowFilter("s", 8, 8)}</defs>
   <g filter="url(#s)" font-family="Impact, Arial Black, sans-serif" font-style="italic" font-weight="900"
-     fill="#ffffff" stroke="#000000" stroke-width="${Math.round(14 * S)}" paint-order="stroke fill">
-    <text x="${TEXT_X}" y="${hasMatchup ? Math.round(180 * S) : Math.round(220 * S)}" text-anchor="middle" font-size="${hasMatchup ? Math.round(140 * S) : Math.round(168 * S)}">${name}</text>
-    <text x="${TEXT_X}" y="${hasMatchup ? Math.round(320 * S) : Math.round(380 * S)}" text-anchor="middle" font-size="${hasMatchup ? Math.round(110 * S) : Math.round(136 * S)}">${escapeXml(score)}</text>
-    <text x="${TEXT_X}" y="${hasMatchup ? Math.round(410 * S) : Math.round(490 * S)}" text-anchor="middle" font-size="${hasMatchup ? Math.round(60 * S) : Math.round(72 * S)}" font-style="normal">${escapeXml(ratingLabel)}</text>
-    <text x="${TEXT_X}" y="${hasMatchup ? Math.round(500 * S) : Math.round(590 * S)}" text-anchor="middle" font-size="${hasMatchup ? Math.round(48 * S) : Math.round(56 * S)}" font-style="normal">${escapeXml(mapLabel.toUpperCase())} POV</text>
+     fill="#ffffff" stroke="#000000" stroke-width="20" paint-order="stroke fill">
+    <text x="${TEXT_X}" y="${hasContext ? 350 : 380}" text-anchor="middle" font-size="${hasContext ? 240 : 280}">${name}</text>
+    <text x="${TEXT_X}" y="${hasContext ? 560 : 620}" text-anchor="middle" font-size="${hasContext ? 200 : 230}">${escapeXml(score)}</text>
+    <text x="${TEXT_X}" y="${hasContext ? 710 : 800}" text-anchor="middle" font-size="${hasContext ? 105 : 120}" font-style="normal">${escapeXml(ratingLabel)}</text>
+    <text x="${TEXT_X}" y="${hasContext ? 840 : 970}" text-anchor="middle" font-size="${hasContext ? 90 : 105}" font-style="normal">${escapeXml(mapLabel.toUpperCase())} POV</text>
     ${
-      hasMatchup
-        ? `<text x="${TEXT_X}" y="${Math.round(590 * S)}" text-anchor="middle" font-size="${Math.round(46 * S)}" font-style="normal" fill="#f5c518">${escapeXml(matchup)}</text>`
+      hasContext
+        ? `<text x="${TEXT_X}" y="990" text-anchor="middle" font-size="86" font-style="normal" fill="#f5c518">${escapeXml(contextLine)}</text>`
         : ""
     }
   </g>
@@ -352,6 +419,9 @@ export async function generateThumbnails(options) {
   const {
     playerPhotoPath,
     teamLogoPath,
+    brandLogoPath: brandLogoOverride,
+    brandRoot,
+    showBrandLogo = true,
     playerName,
     mapName,
     kills,
@@ -363,6 +433,7 @@ export async function generateThumbnails(options) {
     eventName,
     matchup,
     mapsRoot,
+    backgroundPaths,
     outDir,
     date = new Date(),
     rng = Math.random,
@@ -378,11 +449,32 @@ export async function generateThumbnails(options) {
     throw new Error("playerName is required");
   }
 
-  const mapsBase = resolve(mapsRoot);
+  const brandLogoPath =
+    showBrandLogo === false
+      ? null
+      : brandLogoOverride && existsSync(brandLogoOverride)
+        ? resolve(brandLogoOverride)
+        : resolveBrandLogoPath(brandRoot, mapsRoot);
+
+  const customBackgrounds = (backgroundPaths ?? [])
+    .map((path) => resolve(String(path)))
+    .filter((path) => existsSync(path));
+  if (backgroundPaths?.length && customBackgrounds.length === 0) {
+    throw new Error("None of the selected screenshot backgrounds were found on disk.");
+  }
+
   const outBase = resolve(outDir);
   await mkdir(outBase, { recursive: true });
 
-  const { files: backgrounds, dir: usedDir } = await listMapBackgrounds(mapsBase, mapName);
+  let backgrounds = customBackgrounds;
+  let usedDir = null;
+  if (backgrounds.length === 0) {
+    const mapsBase = resolve(mapsRoot);
+    const listed = await listMapBackgrounds(mapsBase, mapName);
+    backgrounds = listed.files;
+    usedDir = listed.dir;
+  }
+
   const backgroundPath = pickRandom(backgrounds, rng);
   const mapLabel = formatMapLabel(mapName);
   const score = formatScore({ kills, deaths, score: scoreOverride });
@@ -398,7 +490,7 @@ export async function generateThumbnails(options) {
     rating: ratingOverride,
   });
   const ratingLabel = formatRatingLabel(hltvRating);
-  const thumbMatchup = resolveThumbMatchup(matchup, matchKind);
+  const contextLine = resolveThumbContextLine({ matchKind, eventName, matchup });
   const title = buildYoutubeTitle({
     playerName: playerName.trim(),
     score,
@@ -414,19 +506,23 @@ export async function generateThumbnails(options) {
   const playerLeft = PLAYER_LEFT;
   const playerTop = Math.max(0, H - (playerMeta.height ?? Math.round(H * PLAYER_HEIGHT_RATIO)));
   const teamLogo = teamLogoPath ? await prepareTeamLogo(teamLogoPath) : null;
+  const brandLogo = brandLogoPath ? await prepareBrandLogo(brandLogoPath) : null;
   const variants = [];
 
   for (let i = 0; i < STYLES.length; i++) {
     const style = STYLES[i];
-    // Each variant can use a different random bg from the same map pool.
-    const bgPath = pickRandom(backgrounds, rng);
+    // Prefer selected screenshots 1:1 with variants; otherwise random map pool.
+    const bgPath =
+      customBackgrounds.length > 0
+        ? customBackgrounds[i % customBackgrounds.length]
+        : pickRandom(backgrounds, rng);
     const bgBuf = await prepareBackground(bgPath, style.mood);
     const svg = style.buildSvg({
       playerName: playerName.trim(),
       score,
       ratingLabel,
       mapLabel,
-      matchup: thumbMatchup,
+      contextLine,
     });
 
     /** @type {Array<{ input: Buffer, left?: number, top?: number }>} */
@@ -440,6 +536,13 @@ export async function generateThumbnails(options) {
     }
     layers.push({ input: playerBuf, left: playerLeft, top: playerTop });
     layers.push({ input: svg, top: 0, left: 0 });
+    if (brandLogo) {
+      layers.push({
+        input: brandLogo.buffer,
+        left: brandLogo.left,
+        top: brandLogo.top,
+      });
+    }
 
     const composed = await compositeThumbnail(bgBuf, layers);
 
@@ -466,11 +569,14 @@ export async function generateThumbnails(options) {
     matchKind: matchKind ?? null,
     eventName: eventName?.trim() || null,
     matchup: matchup?.trim() || null,
+    contextLine,
     teamLogoPath: teamLogoPath ? resolve(teamLogoPath) : null,
+    brandLogoPath: brandLogoPath ? resolve(brandLogoPath) : null,
     map: normalizeMapKey(mapName),
     mapLabel,
     mapsDir: usedDir,
     primaryBackground: backgroundPath,
+    backgroundMode: customBackgrounds.length > 0 ? "screenshots" : "map-pool",
     variants: variants.map(({ dataUrl, ...rest }) => rest),
     generatedAt: date.toISOString(),
   };
@@ -485,6 +591,7 @@ export async function generateThumbnails(options) {
     matchKind: matchKind ?? null,
     eventName: eventName?.trim() || null,
     matchup: matchup?.trim() || null,
+    contextLine,
     mapLabel,
     outDir: outBase,
     metaPath,

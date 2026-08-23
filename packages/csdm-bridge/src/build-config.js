@@ -143,6 +143,10 @@ export function buildCsdmVideoConfig(parsed, options) {
       "hud_showtargetid 1",
       "cl_radar_always_centered 0",
       "spec_show_xray 0",
+      // Round radar (POV is spectator — square-when-spectating defaults to on).
+      "cl_radar_square_always 0",
+      "cl_radar_square_when_spectating 0",
+      "cl_radar_square_with_scoreboard 0",
       // Hide demo navigation / demoui (Shift+F2 panel, timeline).
       "demo_ui_mode 0",
       // Clean debug overlays.
@@ -163,6 +167,8 @@ export function buildCsdmVideoConfig(parsed, options) {
       `mirv_cmd addAtTick ${cameraTick} "cl_draw_only_deathnotices 0"`,
       `mirv_cmd addAtTick ${cameraTick} "r_drawviewmodel 1"`,
       `mirv_cmd addAtTick ${cameraTick} "demo_ui_mode 0"`,
+      `mirv_cmd addAtTick ${cameraTick} "cl_radar_square_always 0"`,
+      `mirv_cmd addAtTick ${cameraTick} "cl_radar_square_when_spectating 0"`,
       `mirv_cmd addAtTick ${cameraTick} "mirv_panorama panelStyle panelId=trueview_row opacity=0"`,
     ];
 

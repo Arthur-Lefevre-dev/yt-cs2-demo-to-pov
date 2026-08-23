@@ -92,6 +92,16 @@ export type PipelineResult = {
   logs: string[];
 };
 
+export type ScreenshotProposal = {
+  id: string;
+  index: number;
+  path: string;
+  label: string;
+  seconds?: number;
+  sourceLabel?: string;
+  dataUrl: string;
+};
+
 export type ThumbnailVariant = {
   id: string;
   index: number;

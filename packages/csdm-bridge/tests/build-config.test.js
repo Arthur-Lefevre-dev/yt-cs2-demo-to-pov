@@ -86,6 +86,8 @@ describe("buildCsdmVideoConfig", () => {
     assert.match(sequence.cfg, /cl_draw_only_deathnotices 0/);
     assert.match(sequence.cfg, /r_drawviewmodel 1/);
     assert.match(sequence.cfg, /spec_player 1/);
+    assert.match(sequence.cfg, /cl_radar_square_always 0/);
+    assert.match(sequence.cfg, /cl_radar_square_when_spectating 0/);
 
     const voices = Object.fromEntries(
       sequence.playersOptions.map((opt) => [opt.steamId, opt.isVoiceEnabled]),

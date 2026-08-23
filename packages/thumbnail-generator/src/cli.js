@@ -24,6 +24,10 @@ Options:
   --rating <n>           Override HLTV rating (e.g. 1.46)
   --score <text>         Override score text (e.g. 16-18)
   --team-logo <path>     Optional team logo PNG (watermark behind player)
+  --brand-logo <path>    Override fixed 4K logo (default: fixtures/thumbnails/brand/4k-logo.*)
+  --brand-root <path>    Folder containing 4k-logo.png (default: sibling of maps-root)
+  --no-4k-logo           Hide the fixed 4K badge
+  --background <path>    Custom screenshot background (repeat up to 3×)
   --match-kind <kind>    faceit | premier | tournament
   --event <name>         Event name for tournament titles (BLAST.tv, IEM Rio, …)
   --matchup <text>       "Vitality vs Spirit" for tournament titles
@@ -45,6 +49,10 @@ async function main() {
       rating: { type: "string" },
       score: { type: "string" },
       "team-logo": { type: "string" },
+      "brand-logo": { type: "string" },
+      "brand-root": { type: "string" },
+      "no-4k-logo": { type: "boolean", default: false },
+      background: { type: "string", multiple: true },
       "match-kind": { type: "string" },
       event: { type: "string" },
       matchup: { type: "string" },
@@ -68,9 +76,18 @@ async function main() {
   const outDir = resolve(values["out-dir"]);
   await mkdir(outDir, { recursive: true });
 
+  const mapsRoot = values["maps-root"]
+    ? resolve(values["maps-root"])
+    : resolve(repoRoot, "fixtures/thumbnails/maps");
+
   const result = await generateThumbnails({
     playerPhotoPath: resolve(values["player-photo"]),
     teamLogoPath: values["team-logo"] ? resolve(values["team-logo"]) : undefined,
+    brandLogoPath: values["brand-logo"] ? resolve(values["brand-logo"]) : undefined,
+    brandRoot: values["brand-root"]
+      ? resolve(values["brand-root"])
+      : resolve(repoRoot, "fixtures/thumbnails/brand"),
+    showBrandLogo: !values["no-4k-logo"],
     playerName: values.name,
     mapName: values.map,
     kills: values.kills ? Number(values.kills) : 0,
@@ -81,9 +98,8 @@ async function main() {
     matchKind: values["match-kind"],
     eventName: values.event,
     matchup: values.matchup,
-    mapsRoot: values["maps-root"]
-      ? resolve(values["maps-root"])
-      : resolve(repoRoot, "fixtures/thumbnails/maps"),
+    backgroundPaths: values.background?.map((path) => resolve(path)),
+    mapsRoot,
     outDir,
   });
 

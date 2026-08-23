@@ -353,6 +353,7 @@ function App() {
                 ?.player_side ?? null
             }
             workDir={pipelineResult?.workDir ?? null}
+            videoPath={pipelineResult?.videoPath ?? null}
             onBack={() => setScreen("result")}
             onRestart={restartJob}
           />

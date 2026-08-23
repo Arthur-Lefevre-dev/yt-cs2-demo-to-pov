@@ -83,6 +83,23 @@ pub fn thumbnails_maps_root() -> PathBuf {
     )
 }
 
+/// Fixed 4K badge folder for thumbnails (top-left).
+pub fn thumbnails_brand_root() -> PathBuf {
+    let user_brand = user_app_root()
+        .join("assets")
+        .join("thumbnails")
+        .join("brand");
+    if user_brand.is_dir() {
+        return to_node_path(user_brand);
+    }
+    to_node_path(
+        workspace_root()
+            .join("fixtures")
+            .join("thumbnails")
+            .join("brand"),
+    )
+}
+
 /// Default thumbnails output when no job work_dir is provided.
 pub fn default_thumbnails_out_dir() -> PathBuf {
     if is_dev_build() {
