@@ -153,8 +153,7 @@ function svgStyleStack({ playerName, score, ratingLabel, mapLabel }) {
     <text x="${TEXT_X}" y="180" text-anchor="middle" font-size="148">${name}</text>
     <text x="${TEXT_X}" y="320" text-anchor="middle" font-size="124">${escapeXml(score)}</text>
     <text x="${TEXT_X}" y="420" text-anchor="middle" font-size="68" fill="#f5c518" stroke="#000">${escapeXml(ratingLabel)}</text>
-    <text x="${TEXT_X}" y="520" text-anchor="middle" font-size="64" fill="#f5c518" stroke="#000">${escapeXml(mapLabel)}</text>
-    <text x="${TEXT_X}" y="600" text-anchor="middle" font-size="52" fill="#f5c518" stroke="#000">POV</text>
+    <text x="${TEXT_X}" y="520" text-anchor="middle" font-size="64" fill="#f5c518" stroke="#000">${escapeXml(mapLabel)} POV</text>
   </g>
 </svg>`);
 }
