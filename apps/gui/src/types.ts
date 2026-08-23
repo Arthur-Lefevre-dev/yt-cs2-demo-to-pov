@@ -80,10 +80,27 @@ export type PipelineResult = {
   logs: string[];
 };
 
+export type ThumbnailVariant = {
+  id: string;
+  index: number;
+  path: string;
+  backgroundPath?: string;
+  dataUrl: string;
+};
+
+export type ThumbnailResult = {
+  title: string;
+  score: string;
+  mapLabel: string;
+  outDir: string;
+  variants: ThumbnailVariant[];
+};
+
 export type AppScreen =
   | "setup"
   | "import"
   | "players"
   | "rounds"
   | "render"
-  | "result";
+  | "result"
+  | "thumbnails";

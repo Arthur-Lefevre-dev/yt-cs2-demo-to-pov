@@ -4,7 +4,7 @@ App desktop Windows (Tauri) qui transforme une demo CS2 FACEIT en vidéo YouTube
 style POV pour un joueur choisi : intro lobby + un clip par round (caméra
 spectateur, comms d’équipe uniquement) + chapitrage YouTube.
 
-**État actuel : étapes 1–7 (GUI complète en dry-run).** Parser, pipeline GUI (rounds → rendu → résultat), `csdm-bridge` JSON, `video-assembler` + `chapters`. Reste : valider `--run` HLAE sur machine avec CSDM + CS2.
+**État actuel : étapes 1–7 (GUI + miniatures YouTube).** Parser, pipeline CSDM, assemble 4K60, générateur de miniatures A/B. Reste : valider `--run` HLAE POV + psql CSDM optionnel.
 
 ## Stack
 
@@ -13,6 +13,7 @@ spectateur, comms d’équipe uniquement) + chapitrage YouTube.
 | GUI | Tauri 2 + React + TypeScript | Backend Rust pour orchestrer les sidecars, frontend web pour les écrans |
 | `demo-parser` | Sidecar **Node** (`@laihoe/demoparser2`) | Pas de parser CS2 haut niveau mature en Rust. `awpy` exige Python `<3.14` (machine actuelle = 3.14). Même cœur Rust que demoparser2 Python. |
 | `csdm-bridge` / `video-assembler` / `chapters` | Sidecars Node | Configs CSDM, concat FFmpeg, chapitres YouTube |
+| `thumbnail-generator` | Sidecar Node (`sharp`) | 3 miniatures YouTube A/B + titre |
 
 Recherche CSDM (schéma `--config-file`, voix, HLAE streaming) : [`docs/CSDM.md`](docs/CSDM.md).
 
@@ -115,5 +116,8 @@ Flux UI :
 4. **Rounds** — sélection des rounds à inclure
 5. **Rendu** — dry-run (configs + chapitres estimés) ou lancement CSDM/HLAE
 6. **Résultat** — dossier job, copier le chapitrage YouTube
+7. **Miniatures** — photo joueur + 3 variantes A/B + titre YouTube
+
+Fonds de map pour les miniatures : `fixtures/thumbnails/maps/<de_nuke|de_mirage|…>/` (voir le README dedans).
 
 Les jobs écrivent sous `fixtures/output/jobs/<joueur>-<map>/` (`parsed.json`, configs CSDM, `chapters-estimated.txt`, `job-state.json`).

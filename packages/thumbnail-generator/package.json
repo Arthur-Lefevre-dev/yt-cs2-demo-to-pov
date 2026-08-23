@@ -1,0 +1,20 @@
+{
+  "name": "@yt-cs2/thumbnail-generator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "YouTube thumbnail A/B variants for CS2 POV videos",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "bin": {
+    "cs2-thumbnails": "./src/cli.js"
+  },
+  "scripts": {
+    "thumbnails": "node src/cli.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "sharp": "^0.34.2"
+  }
+}

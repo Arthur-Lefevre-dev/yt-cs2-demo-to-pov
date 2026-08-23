@@ -4,6 +4,7 @@ use commands::open_path::open_in_explorer;
 use commands::parse_demo::parse_demo;
 use commands::pipeline::run_pipeline;
 use commands::prerequisites::check_prerequisites;
+use commands::thumbnails::generate_thumbnails;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -14,7 +15,8 @@ pub fn run() {
             check_prerequisites,
             parse_demo,
             run_pipeline,
-            open_in_explorer
+            open_in_explorer,
+            generate_thumbnails
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

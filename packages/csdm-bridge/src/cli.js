@@ -15,8 +15,8 @@ Required:
 
 Options:
   --rounds <n,n,...>   Only these round numbers (e.g. 1 or 1,2,3)
-  --width <n>          Default 1920
-  --height <n>         Default 1080
+  --width <n>          Default 3840 (4K)
+  --height <n>         Default 2160 (4K)
   --framerate <n>      Default 60
   --split              Write one JSON file per round (recommended for retries)
   --run                Actually call \`csdm analyze\` + \`csdm video\` (needs CSDM installed)

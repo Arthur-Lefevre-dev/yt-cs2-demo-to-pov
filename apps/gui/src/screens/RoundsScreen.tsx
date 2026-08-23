@@ -43,7 +43,7 @@ export function RoundsScreen({
   return (
     <section className="screen">
       <header className="screen-header">
-        <p className="eyebrow">Étape 4 / 6</p>
+        <p className="eyebrow">Étape 4 / 7</p>
         <h1>Aperçu des rounds</h1>
         <p className="lede">
           {playerName} — coche les rounds à inclure. Durée estimée sélection :{" "}

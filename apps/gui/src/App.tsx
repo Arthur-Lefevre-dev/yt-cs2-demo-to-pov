@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { SetupScreen } from "./screens/SetupScreen";
@@ -7,6 +7,7 @@ import { PlayersScreen } from "./screens/PlayersScreen";
 import { RoundsScreen } from "./screens/RoundsScreen";
 import { RenderScreen } from "./screens/RenderScreen";
 import { ResultScreen } from "./screens/ResultScreen";
+import { ThumbnailScreen } from "./screens/ThumbnailScreen";
 import type {
   AppScreen,
   ParseResult,
@@ -37,6 +38,11 @@ function App() {
   const [pipelineLogs, setPipelineLogs] = useState<string[]>([]);
   const [logsOpen, setLogsOpen] = useState(true);
   const [pipelineResult, setPipelineResult] = useState<PipelineResult | null>(null);
+
+  const selectedPlayer = useMemo(
+    () => parseResult?.players.find((p) => p.steam_id === selectedSteamId) ?? null,
+    [parseResult, selectedSteamId],
+  );
 
   const refreshPrerequisites = useCallback(async () => {
     setPrereqLoading(true);
@@ -208,7 +214,7 @@ function App() {
           </button>
           <button
             type="button"
-            className={screen === "render" || screen === "result" ? "step active" : "step"}
+            className={screen === "render" ? "step active" : "step"}
             onClick={() => selectedRounds.length > 0 && setScreen("render")}
             disabled={selectedRounds.length === 0}
           >
@@ -221,6 +227,14 @@ function App() {
             disabled={!pipelineResult}
           >
             6. Résultat
+          </button>
+          <button
+            type="button"
+            className={screen === "thumbnails" ? "step active" : "step"}
+            onClick={() => pipelineResult && selectedPlayer && setScreen("thumbnails")}
+            disabled={!pipelineResult || !selectedPlayer}
+          >
+            7. Miniatures
           </button>
         </nav>
       </aside>
@@ -299,6 +313,18 @@ function App() {
           <ResultScreen
             result={pipelineResult}
             onBack={() => setScreen("render")}
+            onContinue={() => setScreen("thumbnails")}
+            onRestart={restartJob}
+          />
+        )}
+        {screen === "thumbnails" && selectedPlayer && (
+          <ThumbnailScreen
+            playerName={selectedPlayer.name}
+            mapName={parseResult?.map ?? "de_unknown"}
+            kills={selectedPlayer.kills}
+            deaths={selectedPlayer.deaths}
+            workDir={pipelineResult?.workDir ?? null}
+            onBack={() => setScreen("result")}
             onRestart={restartJob}
           />
         )}

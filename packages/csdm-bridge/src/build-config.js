@@ -53,8 +53,8 @@ export function buildCsdmVideoConfig(parsed, options) {
   }
 
   const endPadding = Number(options.endPaddingTicks ?? 0);
-  const width = options.width ?? 1920;
-  const height = options.height ?? 1080;
+  const width = options.width ?? 3840;
+  const height = options.height ?? 2160;
   const framerate = options.framerate ?? 60;
   const showXRay = options.showXRay ?? false;
   // YouTube POV: full player HUD (radar, health, alive teammates) — not death-notices-only.

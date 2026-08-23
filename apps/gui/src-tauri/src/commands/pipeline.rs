@@ -221,6 +221,12 @@ fn run_pipeline_inner(app: AppHandle, request: PipelineRequest) -> Result<Pipeli
         OsString::from("--out-dir"),
         config_dir.as_os_str().to_os_string(),
         OsString::from("--split"),
+        OsString::from("--width"),
+        OsString::from("3840"),
+        OsString::from("--height"),
+        OsString::from("2160"),
+        OsString::from("--framerate"),
+        OsString::from("60"),
     ];
     if request.run_csdm && !request.dry_run {
         config_args.push(OsString::from("--run"));
@@ -305,6 +311,12 @@ fn run_pipeline_inner(app: AppHandle, request: PipelineRequest) -> Result<Pipeli
             result_json.as_os_str().to_os_string(),
             OsString::from("--intro-seconds"),
             OsString::from(intro_seconds.to_string()),
+            OsString::from("--width"),
+            OsString::from("3840"),
+            OsString::from("--height"),
+            OsString::from("2160"),
+            OsString::from("--framerate"),
+            OsString::from("60"),
         ];
         if let Some(lobby) = &request.lobby_path {
             if PathBuf::from(lobby).is_file() {

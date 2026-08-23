@@ -13,7 +13,7 @@ export function SetupScreen({ report, loading, error, onRefresh, onContinue }: P
   return (
     <section className="screen">
       <header className="screen-header">
-        <p className="eyebrow">Étape 1 / 6</p>
+        <p className="eyebrow">Étape 1 / 7</p>
         <h1>Prérequis</h1>
         <p className="lede">
           Détection locale de CS2, CSDM, HLAE, FFmpeg et Node. Le parsing de demo

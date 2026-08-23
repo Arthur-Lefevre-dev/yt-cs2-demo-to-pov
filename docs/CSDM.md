@@ -39,8 +39,8 @@ Type effectif : `VideoCommandConfig` + `Sequence[]`.
   "recordingSystem": "HLAE",                                 // "HLAE" | "CS"
   "recordingOutput": "video",                                // "video" | "images" | "images-and-video"
   "encoderSoftware": "FFmpeg",                               // "FFmpeg" | "VirtualDub"
-  "width": 1920,                                             // min 800
-  "height": 1080,                                            // min 600
+  "width": 3840,                                             // 4K UHD (min 800)
+  "height": 2160,                                            // 4K UHD (min 600)
   "framerate": 60,
   "closeGameAfterRecording": true,
   "concatenateSequences": false,                             // false = 1 fichier par sequence

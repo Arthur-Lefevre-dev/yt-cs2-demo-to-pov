@@ -17,6 +17,7 @@
     "csdm:config": "node packages/csdm-bridge/src/cli.js",
     "assemble": "node packages/video-assembler/src/cli.js",
     "chapters": "node packages/chapters/src/cli.js",
+    "thumbnails": "node packages/thumbnail-generator/src/cli.js",
     "fixtures:download": "node fixtures/download-fixtures.mjs",
     "dev": "npm run tauri --workspace gui -- dev"
   },

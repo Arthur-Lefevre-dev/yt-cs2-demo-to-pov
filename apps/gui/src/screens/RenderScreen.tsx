@@ -36,7 +36,7 @@ export function RenderScreen({
   return (
     <section className="screen">
       <header className="screen-header">
-        <p className="eyebrow">Étape 5 / 6</p>
+        <p className="eyebrow">Étape 5 / 7</p>
         <h1>Rendu</h1>
         <p className="lede">
           Génère les configs CSDM, le chapitrage estimé, et optionnellement lance

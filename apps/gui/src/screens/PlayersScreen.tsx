@@ -32,7 +32,7 @@ export function PlayersScreen({
   return (
     <section className="screen">
       <header className="screen-header">
-        <p className="eyebrow">Étape 3 / 6</p>
+        <p className="eyebrow">Étape 3 / 7</p>
         <h1>Choisir un joueur</h1>
         <p className="lede">
           {result.map ?? "map ?"} · tickrate {result.tickrate ?? "?"} ·{" "}

@@ -56,7 +56,7 @@ export function ImportScreen({
   return (
     <section className="screen">
       <header className="screen-header">
-        <p className="eyebrow">Étape 2 / 6</p>
+        <p className="eyebrow">Étape 2 / 7</p>
         <h1>Importer la demo</h1>
         <p className="lede">
           Charge un fichier <code>.dem</code> FACEIT et optionnellement le

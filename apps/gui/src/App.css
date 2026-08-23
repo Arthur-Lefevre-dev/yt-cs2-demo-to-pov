@@ -380,8 +380,44 @@ code,
   background: var(--bg-elevated);
 }
 
-.option-disabled {
-  opacity: 0.55;
+.thumb-results {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.thumb-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.thumb-card {
+  margin: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.thumb-card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: #111;
+}
+
+.thumb-card figcaption {
+  padding: 0.45rem 0.6rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+@media (max-width: 900px) {
+  .thumb-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .warn {
@@ -430,8 +466,9 @@ code,
   gap: 0.4rem;
 }
 
-.option.field input[type="number"] {
-  width: 6rem;
+.option.field input[type="number"],
+.option.field input[type="text"] {
+  width: min(100%, 22rem);
   background: var(--bg);
   border: 1px solid var(--line);
   border-radius: 8px;

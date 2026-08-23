@@ -5,10 +5,11 @@ import type { PipelineResult } from "../types";
 type Props = {
   result: PipelineResult;
   onBack: () => void;
+  onContinue: () => void;
   onRestart: () => void;
 };
 
-export function ResultScreen({ result, onBack, onRestart }: Props) {
+export function ResultScreen({ result, onBack, onContinue, onRestart }: Props) {
   const [copied, setCopied] = useState(false);
   const [openError, setOpenError] = useState<string | null>(null);
 
@@ -30,7 +31,7 @@ export function ResultScreen({ result, onBack, onRestart }: Props) {
   return (
     <section className="screen">
       <header className="screen-header">
-        <p className="eyebrow">Étape 6 / 6</p>
+        <p className="eyebrow">Étape 6 / 7</p>
         <h1>Résultat</h1>
         <p className="lede">
           Mode <code>{result.mode}</code>
@@ -94,7 +95,10 @@ export function ResultScreen({ result, onBack, onRestart }: Props) {
         <button type="button" onClick={onBack}>
           Retour rendu
         </button>
-        <button type="button" className="primary" onClick={onRestart}>
+        <button type="button" className="primary" onClick={onContinue}>
+          Miniatures YouTube
+        </button>
+        <button type="button" onClick={onRestart}>
           Nouveau job
         </button>
       </footer>

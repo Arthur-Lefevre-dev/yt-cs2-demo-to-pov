@@ -15,8 +15,8 @@ Options:
   --intro-seconds <n>    Intro duration (default 4)
   --work-dir <path>      Temp/normalized clips folder
   --result-json <path>   Also write assemble result JSON here
-  --width <n>            Default 1920
-  --height <n>           Default 1080
+  --width <n>            Default 3840 (4K)
+  --height <n>           Default 2160 (4K)
   --framerate <n>        Default 60
   --help
 `);
@@ -65,8 +65,8 @@ async function main() {
     roundClipPaths,
     outputPath,
     workDir: values["work-dir"] ? resolve(values["work-dir"]) : undefined,
-    width: values.width ? Number(values.width) : 1920,
-    height: values.height ? Number(values.height) : 1080,
+    width: values.width ? Number(values.width) : 3840,
+    height: values.height ? Number(values.height) : 2160,
     framerate: values.framerate ? Number(values.framerate) : 60,
     onLog: (line) => process.stderr.write(line),
   });
