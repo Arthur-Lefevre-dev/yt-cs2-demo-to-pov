@@ -1,7 +1,31 @@
 /**
  * Build a CSDM `csdm video --config-file` JSON object from demo-parser output.
  * One sequence per selected round, POV camera + team-only voices for THAT round.
+ *
+ * CS2 camera focus (CSDM createCs2VideoJsonFile):
+ *   spec_mode 1
+ *   spec_player <slot>
+ * where slot = user_id + 1 (same as CSDM DB players.index).
+ * Without Postgres analyze, CSDM cannot resolve playerCameras → we inject cfg ourselves.
  */
+
+/** Bitmask helpers matching CSDM generatePlayerVoicesValues (userId = slot - 1). */
+export function generatePlayerVoicesValues(userIds) {
+  let valueLow = 0;
+  let valueHigh = 0;
+  for (const userId of userIds) {
+    const id = Number(userId);
+    if (!Number.isFinite(id) || id < 0) {
+      continue;
+    }
+    if (id < 32) {
+      valueLow |= 1 << id;
+    } else if (id < 64) {
+      valueHigh |= 1 << (id - 32);
+    }
+  }
+  return { valueLow: valueLow >>> 0, valueHigh: valueHigh >>> 0 };
+}
 
 /**
  * @param {import('./types.js').ParseLike} parsed
@@ -12,6 +36,11 @@ export function buildCsdmVideoConfig(parsed, options) {
   const player = parsed.players.find((entry) => entry.steam_id === steamId);
   if (!player) {
     throw new Error(`Player ${steamId} not found in parse result`);
+  }
+  if (player.slot == null || player.user_id == null) {
+    throw new Error(
+      `Player ${steamId} has no spectator slot/user_id from demo parse — re-run the parser.`,
+    );
   }
 
   let rounds = parsed.player_rounds.filter((row) => row.steam_id === steamId);
@@ -28,17 +57,31 @@ export function buildCsdmVideoConfig(parsed, options) {
   const height = options.height ?? 1080;
   const framerate = options.framerate ?? 60;
   const showXRay = options.showXRay ?? false;
+  // YouTube POV: full player HUD (radar, health, alive teammates) — not death-notices-only.
+  const showOnlyDeathNotices = options.showOnlyDeathNotices ?? false;
+  const trueView = options.trueView ?? true;
   const mapSlug = (parsed.map ?? "map").replace(/[^\w-]+/g, "_");
+  const tickrate = Math.round(Number(parsed.tickrate) || 64);
 
   const nameBySteamId = new Map(parsed.players.map((entry) => [entry.steam_id, entry.name]));
+  const slotBySteamId = new Map(
+    parsed.players
+      .filter((entry) => entry.slot != null)
+      .map((entry) => [entry.steam_id, { slot: entry.slot, user_id: entry.user_id }]),
+  );
 
   const sequences = rounds.map((row, index) => {
     const teamSet = new Set(row.team_steam_ids.map(String));
     const startTick = row.round_start_tick;
     const endTick = Math.max(startTick + 1, row.clip_end_tick + endPadding);
+    // Spec after freezetime when possible — after demo_gototick setup (CSDM issue #1238).
+    const cameraTick = Math.max(
+      startTick + 1,
+      Number(row.freeze_end_tick ?? startTick) + 1,
+      // CSDM also avoids the first ~96 ticks after a skip.
+      96,
+    );
 
-    // Include every known player so CSDM can mute non-team voices via isVoiceEnabled.
-    // Also include any teammate steam id missing from the global roster.
     const optionSteamIds = new Set([
       ...parsed.players.map((entry) => entry.steam_id),
       ...row.team_steam_ids.map(String),
@@ -52,32 +95,59 @@ export function buildCsdmVideoConfig(parsed, options) {
       isVoiceEnabled: teamSet.has(id),
     }));
 
+    const voiceUserIds = [...teamSet]
+      .map((id) => slotBySteamId.get(id)?.user_id)
+      .filter((id) => id != null);
+    const { valueLow, valueHigh } = generatePlayerVoicesValues(voiceUserIds);
+
+    // CS2 first-person POV + full HUD (radar / HP / teammates alive).
+    const cfgLines = [
+      "spec_mode 1",
+      `spec_player ${player.slot}`,
+      "cl_drawhud 1",
+      "cl_draw_only_deathnotices 0",
+      "cl_radar_always_centered 0",
+      `tv_listen_voice_indices ${valueLow}`,
+      `tv_listen_voice_indices_h ${valueHigh}`,
+      // Re-apply focus a few times around freeze end (gototick can drop early specs).
+      `mirv_cmd clear`,
+      `mirv_cmd addAtTick ${cameraTick} "spec_mode 1"`,
+      `mirv_cmd addAtTick ${cameraTick} "spec_player ${player.slot}"`,
+      `mirv_cmd addAtTick ${cameraTick + Math.max(8, Math.round(tickrate / 4))} "spec_player ${player.slot}"`,
+      `mirv_cmd addAtTick ${cameraTick} "cl_drawhud 1"`,
+      `mirv_cmd addAtTick ${cameraTick} "cl_draw_only_deathnotices 0"`,
+    ];
+
     return {
       number: index + 1,
       startTick,
       endTick,
-      showOnlyDeathNotices: true,
+      showOnlyDeathNotices,
       deathNoticesDuration: 5,
       showXRay,
       showAssists: true,
       playerVoicesEnabled: true,
       recordAudio: true,
+      cfg: cfgLines.join("\n"),
       playersOptions,
       playerCameras: [
         {
-          tick: startTick,
+          tick: cameraTick,
           playerSteamId: steamId,
           playerName: player.name,
         },
       ],
       cameras: [],
-      // Metadata for our pipeline (CSDM ignores unknown fields if strict — strip before write)
       _meta: {
         roundNumber: row.round_number,
         playerSide: row.player_side,
         survived: row.survived,
         deathTick: row.player_death_tick,
         teamSteamIds: row.team_steam_ids,
+        startTick,
+        endTick,
+        slot: player.slot,
+        userId: player.user_id,
       },
     };
   });
@@ -94,7 +164,7 @@ export function buildCsdmVideoConfig(parsed, options) {
     framerate,
     closeGameAfterRecording: options.closeGameAfterRecording ?? true,
     concatenateSequences: false,
-    trueView: false,
+    trueView,
     ffmpegSettings: {
       audioBitrate: 256,
       constantRateFactor: 23,

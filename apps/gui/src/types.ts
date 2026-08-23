@@ -22,6 +22,9 @@ export type DemoPlayer = {
   kills: number;
   deaths: number;
   assists: number;
+  user_id?: number | null;
+  slot?: number | null;
+  entity_id?: number | null;
 };
 
 export type DemoRound = {

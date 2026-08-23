@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { openPath } from "@tauri-apps/plugin-opener";
+import { invoke } from "@tauri-apps/api/core";
 import type { PipelineResult } from "../types";
 
 type Props = {
@@ -10,11 +10,21 @@ type Props = {
 
 export function ResultScreen({ result, onBack, onRestart }: Props) {
   const [copied, setCopied] = useState(false);
+  const [openError, setOpenError] = useState<string | null>(null);
 
   async function copyChapters() {
     await navigator.clipboard.writeText(result.chaptersText);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1500);
+  }
+
+  async function openInExplorer(path: string) {
+    setOpenError(null);
+    try {
+      await invoke("open_in_explorer", { path });
+    } catch (error) {
+      setOpenError(error instanceof Error ? error.message : String(error));
+    }
   }
 
   return (
@@ -35,7 +45,7 @@ export function ResultScreen({ result, onBack, onRestart }: Props) {
           <p className="hint">Dossier job</p>
           <code className="path">{result.workDir}</code>
           <div className="inline-actions" style={{ marginTop: "0.75rem" }}>
-            <button type="button" onClick={() => void openPath(result.workDir)}>
+            <button type="button" onClick={() => void openInExplorer(result.workDir)}>
               Ouvrir le dossier
             </button>
           </div>
@@ -46,8 +56,8 @@ export function ResultScreen({ result, onBack, onRestart }: Props) {
               </p>
               <code className="path">{result.videoPath}</code>
               <div className="inline-actions" style={{ marginTop: "0.5rem" }}>
-                <button type="button" onClick={() => void openPath(result.videoPath!)}>
-                  Ouvrir la vidéo
+                <button type="button" onClick={() => void openInExplorer(result.videoPath!)}>
+                  Ouvrir dans l’Explorateur
                 </button>
               </div>
             </>
@@ -58,6 +68,7 @@ export function ResultScreen({ result, onBack, onRestart }: Props) {
               sont prêts pour un <code>--run</code> ultérieur.
             </p>
           )}
+          {openError && <p className="error">{openError}</p>}
         </div>
 
         <div className="panel">

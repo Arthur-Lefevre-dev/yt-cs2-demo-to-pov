@@ -69,8 +69,30 @@ function sampleSidesAtTicks(demoPath, ticks) {
   if (ticks.length === 0) {
     return [];
   }
-  const rows = parseTicks(demoPath, ["team_num", "team_name", "health", "name"], ticks) ?? [];
+  const rows =
+    parseTicks(demoPath, ["team_num", "team_name", "health", "name", "user_id", "entity_id"], ticks) ??
+    [];
   return Array.isArray(rows) ? rows : [];
+}
+
+/** CSDM maps DB `players.index` as slot and `userId = slot - 1`. demoparser `user_id` matches that userId. */
+function samplePlayerSlots(demoPath, ticks) {
+  const rows = sampleSidesAtTicks(demoPath, ticks);
+  const bySteam = new Map();
+  for (const row of rows) {
+    const steamId = rowSteamId(row);
+    if (!steamId || row.user_id == null || Number.isNaN(Number(row.user_id))) {
+      continue;
+    }
+    const userId = Number(row.user_id);
+    bySteam.set(steamId, {
+      user_id: userId,
+      // CSDM: slot = userId + 1 (used by `spec_player <slot>`)
+      slot: userId + 1,
+      entity_id: row.entity_id != null ? Number(row.entity_id) : null,
+    });
+  }
+  return bySteam;
 }
 
 function groupTickRowsByTick(rows) {
@@ -117,6 +139,7 @@ export function parseDemo(demoPath, options = {}) {
   const sampleTicks = [...new Set(rounds.map((round) => round.freeze_end_tick))];
   const tickRows = sampleSidesAtTicks(absolutePath, sampleTicks);
   const rowsByTick = groupTickRowsByTick(tickRows);
+  const slotsBySteam = samplePlayerSlots(absolutePath, sampleTicks);
 
   const roster = [];
   const seen = new Set();
@@ -147,8 +170,12 @@ export function parseDemo(demoPath, options = {}) {
 
   const players = roster.map((player) => {
     const stats = countPlayerStats(officialDeaths, player.steam_id);
+    const slotInfo = slotsBySteam.get(player.steam_id) ?? {};
     return {
       ...player,
+      user_id: slotInfo.user_id ?? null,
+      slot: slotInfo.slot ?? null,
+      entity_id: slotInfo.entity_id ?? null,
       kills: stats.kills,
       deaths: stats.deaths,
       assists: stats.assists,

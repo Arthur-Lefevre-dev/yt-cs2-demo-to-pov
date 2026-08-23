@@ -63,7 +63,7 @@ export function RenderScreen({
             <em>Configs JSON + chapitres estimés uniquement (recommandé pour tester)</em>
           </span>
         </label>
-        <label className={`option${csdmReady ? "" : " option-disabled"}`}>
+        <label className="option">
           <input
             type="checkbox"
             checked={runCsdm}
@@ -85,6 +85,12 @@ export function RenderScreen({
             </em>
           </span>
         </label>
+        {!dryRun && !runCsdm && (
+          <p className="hint">
+            Sans dry-run ni CSDM : génère les JSON et assemble les mp4 déjà
+            présents dans le dossier job (utile après un enregistrement).
+          </p>
+        )}
         {!dryRun && runCsdm && (
           <p className="warn">
             Attention : l’enregistrement HLAE prend longtemps (surtout avec tous les

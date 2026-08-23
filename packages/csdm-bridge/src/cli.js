@@ -21,6 +21,8 @@ Options:
   --split              Write one JSON file per round (recommended for retries)
   --run                Actually call \`csdm analyze\` + \`csdm video\` (needs CSDM installed)
   --no-analyze         With --run, skip csdm analyze
+  --death-notices-only Hide full HUD (cinematic); default is full POV HUD
+  --no-true-view       Disable CS2 demo predict / true-view feel
   --help
 `);
 }
@@ -48,6 +50,8 @@ async function main() {
       split: { type: "boolean", default: false },
       run: { type: "boolean", default: false },
       "no-analyze": { type: "boolean", default: false },
+      "death-notices-only": { type: "boolean", default: false },
+      "no-true-view": { type: "boolean", default: false },
       help: { type: "boolean", short: "h", default: false },
     },
   });
@@ -69,6 +73,8 @@ async function main() {
     width: values.width ? Number(values.width) : undefined,
     height: values.height ? Number(values.height) : undefined,
     framerate: values.framerate ? Number(values.framerate) : undefined,
+    showOnlyDeathNotices: values["death-notices-only"] ? true : false,
+    trueView: values["no-true-view"] ? false : true,
   });
 
   if (values.split || config.sequences.length === 1) {
@@ -82,12 +88,15 @@ async function main() {
     }
 
     if (values.run) {
-      for (const item of written) {
+      let demoPath = parsed.demo_path;
+      for (const [index, item] of written.entries()) {
         console.error(`\n--- Recording round ${item.round} ---`);
         const code = await runCsdmVideo({
           configFilePath: item.path,
-          demoPath: parsed.demo_path,
-          analyze: !values["no-analyze"],
+          demoPath,
+          // Analyze once for the demo, then skip on subsequent rounds.
+          analyze: index === 0 && !values["no-analyze"],
+          focusPlayerSteamId: String(values.player),
         });
         if (code !== 0) {
           throw new Error(`csdm video failed for round ${item.round} (exit ${code})`);
@@ -111,6 +120,7 @@ async function main() {
       configFilePath: filePath,
       demoPath: parsed.demo_path,
       analyze: !values["no-analyze"],
+      focusPlayerSteamId: String(values.player),
     });
     if (code !== 0) {
       throw new Error(`csdm video failed (exit ${code})`);

@@ -1,5 +1,6 @@
 mod commands;
 
+use commands::open_path::open_in_explorer;
 use commands::parse_demo::parse_demo;
 use commands::pipeline::run_pipeline;
 use commands::prerequisites::check_prerequisites;
@@ -12,7 +13,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             check_prerequisites,
             parse_demo,
-            run_pipeline
+            run_pipeline,
+            open_in_explorer
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

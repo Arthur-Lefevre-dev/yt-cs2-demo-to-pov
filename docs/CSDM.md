@@ -206,17 +206,25 @@ stricts sur le camp courant : ils sont figés au camp de départ.
 
 ## Caméra POV
 
-`playerCameras[]` → CSDM émet au tick donné :
+CSDM CS2 (code `createCs2VideoJsonFile`) fait pour chaque `playerCameras[]` :
 
 ```
 spec_mode 1
 spec_player <slot>
 ```
 
-Le `slot` est résolu via la DB CSDM (`PlayerWatchInfo.slot`), pas via le
-SteamID directement dans CS2. D’où le prérequis `csdm analyze`.
+Le `slot` vient de la base CSDM (`players.index`), avec `userId = slot - 1`.
+Sans `csdm analyze` / Postgres (`psql`), CSDM **ignore** `playerCameras`.
 
-Équivalent CLI : `--focus-player <SteamID64>` (une seule caméra au `startTick`).
+Notre bridge contourne ça :
+
+1. Le parser lit `user_id` via demoparser2 et expose `slot = user_id + 1`.
+2. Le JSON injecte dans `sequences[].cfg` : `spec_mode 1` + `spec_player <slot>`
+   (+ `mirv_cmd addAtTick` pour re-appliquer après le freezetime).
+
+Ne pas utiliser `spec_lock_to_accountid` / `spec_mode 2` (chemins CS:GO / mauvais mode).
+
+Équivalent CLI : `--focus-player <SteamID64>` (nécessite aussi la DB CSDM pour résoudre le slot).
 
 Note CSDM (oct. 2025) : ne pas exécuter `spec_player` et `demo_gototick` au
 même tick — le JSON d’actions saute d’abord au tick de setup, puis spec.
@@ -266,8 +274,10 @@ JSON `csdm json` pour recouper ticks et `userId`/`slot`.
 ## Décision pour `csdm-bridge` (plus tard)
 
 1. `csdm analyze --source faceit`.
-2. Générer un JSON : 1 sequence / round sélectionné, `playerCameras` sur le
-   joueur, `isVoiceEnabled` true uniquement pour `team_steam_ids` du round.
+2. Générer un JSON : 1 sequence / round sélectionné, `playerCameras` / cfg
+   `spec_player <slot>`, **HUD complet** (`showOnlyDeathNotices: false`) pour
+   radar / HP / joueurs en vie, voix d’équipe via bitmask
+   (`isVoiceEnabled` true uniquement pour `team_steam_ids` du round).
 3. `recordingSystem: HLAE`, `recordingOutput: video`, `encoderSoftware: FFmpeg`.
 4. `concatenateSequences: false` (on assemble nous-mêmes avec intro lobby).
 5. Appeler `csdm video --config-file …` et streamer stdout.

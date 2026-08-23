@@ -43,6 +43,7 @@ export function runCsdmVideo({
   demoPath,
   analyze = true,
   source = "faceit",
+  focusPlayerSteamId = null,
   csdmPath = resolveCsdmExecutable(),
   extraArgs = [],
   onLog = (line) => process.stderr.write(line),
@@ -56,16 +57,20 @@ export function runCsdmVideo({
           onLog,
         );
         if (analyzeCode !== 0) {
-          reject(new Error(`csdm analyze exited with code ${analyzeCode}`));
-          return;
+          onLog(
+            `\nWARNING: csdm analyze exited with code ${analyzeCode}. ` +
+              `Continuing video with SteamID camera lock (spec_lock_to_accountid). ` +
+              `Install PostgreSQL client (psql) for full CSDM DB support.\n`,
+          );
         }
       }
 
-      const code = await spawnLogged(
-        csdmPath,
-        ["video", "--config-file", configFilePath, ...extraArgs],
-        onLog,
-      );
+      const videoArgs = ["video", "--config-file", configFilePath, ...extraArgs];
+      if (focusPlayerSteamId) {
+        videoArgs.push("--focus-player", String(focusPlayerSteamId));
+      }
+
+      const code = await spawnLogged(csdmPath, videoArgs, onLog);
       resolve(code);
     } catch (error) {
       reject(error);
@@ -76,9 +81,12 @@ export function runCsdmVideo({
 function spawnLogged(command, args, onLog) {
   return new Promise((resolve, reject) => {
     onLog(`\n> ${command} ${args.join(" ")}\n`);
+    // Prefer shell:false; .cmd still needs shell on Windows.
+    const useShell = /\.cmd$/i.test(String(command));
     const child = spawn(command, args, {
-      shell: true,
+      shell: useShell,
       windowsHide: false,
+      windowsVerbatimArguments: false,
     });
     child.stdout?.on("data", (chunk) => onLog(String(chunk)));
     child.stderr?.on("data", (chunk) => onLog(String(chunk)));

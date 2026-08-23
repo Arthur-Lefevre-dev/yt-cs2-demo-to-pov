@@ -56,13 +56,19 @@ function App() {
   }, [refreshPrerequisites]);
 
   useEffect(() => {
+    let active = true;
     let unlisten: (() => void) | undefined;
     void listen<string>("pipeline-log", (event) => {
       setPipelineLogs((prev) => [...prev, event.payload]);
     }).then((fn) => {
+      if (!active) {
+        fn();
+        return;
+      }
       unlisten = fn;
     });
     return () => {
+      active = false;
       unlisten?.();
     };
   }, []);
@@ -103,6 +109,16 @@ function App() {
   async function handlePipeline() {
     if (!parseResult || !selectedSteamId) {
       return;
+    }
+    if (!dryRun && runCsdm && selectedRounds.length > 2) {
+      const ok = window.confirm(
+        `Tu vas lancer CSDM/HLAE sur ${selectedRounds.length} rounds.\n` +
+          `Ça peut prendre très longtemps. Continuer ?\n\n` +
+          `Conseil : teste d’abord avec 1 seul round.`,
+      );
+      if (!ok) {
+        return;
+      }
     }
     const playerName =
       parseResult.players.find((p) => p.steam_id === selectedSteamId)?.name ?? selectedSteamId;

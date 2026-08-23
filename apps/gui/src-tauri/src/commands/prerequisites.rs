@@ -112,14 +112,27 @@ fn detect_hlae() -> Option<PathBuf> {
         return Some(from_path);
     }
 
-    let local_app_data = env::var_os("LOCALAPPDATA").map(PathBuf::from);
     let mut candidates = Vec::new();
-    if let Some(local) = &local_app_data {
-        // CSDM often installs HLAE under its own data folder
+
+    // Standalone installer
+    candidates.push(PathBuf::from(r"C:\Program Files (x86)\HLAE\HLAE.exe"));
+    candidates.push(PathBuf::from(r"C:\Program Files\HLAE\HLAE.exe"));
+    candidates.push(PathBuf::from(r"C:\HLAE\HLAE.exe"));
+
+    // CSDM-managed install (user profile)
+    candidates.push(expand_user(r"~\.csdm\hlae\HLAE.exe"));
+
+    if let Some(local) = env::var_os("LOCALAPPDATA").map(PathBuf::from) {
         candidates.push(local.join(r"cs-demo-manager\hlae\HLAE.exe"));
         candidates.push(local.join(r"CS Demo Manager\hlae\HLAE.exe"));
         candidates.push(local.join(r"Advancedfx\HLAE\HLAE.exe"));
+        candidates.push(local.join(r"Programs\HLAE\HLAE.exe"));
     }
+    if let Some(roaming) = env::var_os("APPDATA").map(PathBuf::from) {
+        candidates.push(roaming.join(r"advancedfx\hlae\HLAE.exe"));
+        candidates.push(roaming.join(r"HLAE\HLAE.exe"));
+    }
+
     first_existing(&candidates)
 }
 

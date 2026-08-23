@@ -1,4 +1,4 @@
-use super::sidecar::{run_node_cli, to_node_path, workspace_root};
+use super::sidecar::{run_node_cli_streaming, to_node_path, workspace_root};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::ffi::OsString;
@@ -40,6 +40,9 @@ pub struct PipelineResult {
 
 fn emit_log(app: &AppHandle, logs: &mut Vec<String>, line: impl Into<String>) {
     let line = line.into();
+    if line.trim().is_empty() {
+        return;
+    }
     logs.push(line.clone());
     let _ = app.emit("pipeline-log", line);
 }
@@ -83,8 +86,77 @@ fn estimated_chapters(parse: &Value, steam_id: &str, rounds: &[u32], intro_secon
     lines.join("\n")
 }
 
-#[tauri::command]
-pub fn run_pipeline(app: AppHandle, request: PipelineRequest) -> Result<PipelineResult, String> {
+/// Find CSDM-generated mp4s for each selected round (by start/end tick in the JSON config).
+fn discover_csdm_clips(config_dir: &PathBuf, rounds: &[u32]) -> Vec<String> {
+    let mut found = Vec::new();
+    for round in rounds {
+        let config_path = config_dir.join(format!("csdm-round-{:02}.json", round));
+        let Ok(text) = fs::read_to_string(&config_path) else {
+            return Vec::new();
+        };
+        let Ok(json) = serde_json::from_str::<Value>(&text) else {
+            return Vec::new();
+        };
+        let Some(seq) = json
+            .get("sequences")
+            .and_then(|v| v.as_array())
+            .and_then(|arr| arr.first())
+        else {
+            return Vec::new();
+        };
+        let Some(start) = seq.get("startTick").and_then(|v| v.as_u64()) else {
+            return Vec::new();
+        };
+        let Some(end) = seq.get("endTick").and_then(|v| v.as_u64()) else {
+            return Vec::new();
+        };
+
+        let tick_suffix = format!("tick-{start}-to-{end}.mp4");
+        let mut match_path: Option<PathBuf> = None;
+        if let Ok(entries) = fs::read_dir(config_dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if name.ends_with(&tick_suffix) {
+                    match_path = Some(entry.path());
+                    break;
+                }
+            }
+        }
+        if match_path.is_none() {
+            if let Some(name) = json.get("outputFileName").and_then(|v| v.as_str()) {
+                let candidate = config_dir.join(format!("{name}.mp4"));
+                if candidate.is_file() {
+                    match_path = Some(candidate);
+                }
+            }
+        }
+
+        match match_path {
+            Some(path) => found.push(to_node_path(&path).display().to_string()),
+            None => return Vec::new(),
+        }
+    }
+    found
+}
+
+fn stream_cli(
+    app: &AppHandle,
+    logs: &mut Vec<String>,
+    cli_relative: &str,
+    args: &[OsString],
+) -> Result<super::sidecar::NodeOutput, String> {
+    let app_log = app.clone();
+    let mut streamed = Vec::new();
+    let output = run_node_cli_streaming(cli_relative, args, |line| {
+        streamed.push(line.to_string());
+        let _ = app_log.emit("pipeline-log", line.to_string());
+    })?;
+    logs.extend(streamed);
+    Ok(output)
+}
+
+/// Blocking pipeline body. Must not run on the UI / IPC thread.
+fn run_pipeline_inner(app: AppHandle, request: PipelineRequest) -> Result<PipelineResult, String> {
     if !cfg!(target_os = "windows") {
         return Err("This app only supports Windows.".into());
     }
@@ -155,14 +227,19 @@ pub fn run_pipeline(app: AppHandle, request: PipelineRequest) -> Result<Pipeline
         emit_log(
             &app,
             &mut logs,
-            "WARNING: launching CSDM/HLAE recording — do not use mouse/keyboard.",
+            format!(
+                "WARNING: launching CSDM/HLAE for {} round(s) — UI stays responsive; do not use mouse/keyboard in CS2.",
+                request.rounds.len()
+            ),
         );
     }
 
-    let config_out = run_node_cli("packages/csdm-bridge/src/cli.js", &config_args)?;
-    if !config_out.stderr.is_empty() {
-        emit_log(&app, &mut logs, config_out.stderr.trim_end().to_string());
-    }
+    stream_cli(
+        &app,
+        &mut logs,
+        "packages/csdm-bridge/src/cli.js",
+        &config_args,
+    )?;
 
     let mut config_paths = Vec::new();
     for round in &request.rounds {
@@ -181,7 +258,7 @@ pub fn run_pipeline(app: AppHandle, request: PipelineRequest) -> Result<Pipeline
     let mut chapters_text =
         estimated_chapters(&request.parse_result, &request.steam_id, &request.rounds, intro_seconds);
     let mut video_path: Option<String> = None;
-    let mut chapters_path: Option<String> = None;
+    let chapters_path: Option<String>;
     let mut mode = if request.dry_run {
         "dry-run".to_string()
     } else if request.run_csdm {
@@ -190,7 +267,21 @@ pub fn run_pipeline(app: AppHandle, request: PipelineRequest) -> Result<Pipeline
         "configs-only".to_string()
     };
 
-    let clip_paths = request.round_clip_paths.unwrap_or_default();
+    let mut clip_paths = request.round_clip_paths.unwrap_or_default();
+    if clip_paths.is_empty() && !request.dry_run {
+        clip_paths = discover_csdm_clips(&config_dir, &request.rounds);
+        if !clip_paths.is_empty() {
+            emit_log(
+                &app,
+                &mut logs,
+                format!("Discovered {} CSDM clip(s) for assembly.", clip_paths.len()),
+            );
+            for path in &clip_paths {
+                emit_log(&app, &mut logs, format!("  clip: {path}"));
+            }
+        }
+    }
+
     let clips_ready = !request.dry_run
         && clip_paths.len() == request.rounds.len()
         && clip_paths.iter().all(|path| PathBuf::from(path).is_file());
@@ -219,17 +310,33 @@ pub fn run_pipeline(app: AppHandle, request: PipelineRequest) -> Result<Pipeline
             if PathBuf::from(lobby).is_file() {
                 assemble_args.push(OsString::from("--lobby"));
                 assemble_args.push(OsString::from(lobby));
+            } else {
+                emit_log(
+                    &app,
+                    &mut logs,
+                    "No lobby screenshot provided — assembling rounds only (no intro).",
+                );
             }
+        } else {
+            emit_log(
+                &app,
+                &mut logs,
+                "No lobby screenshot provided — assembling rounds only (no intro).",
+            );
         }
 
-        let assemble_out = run_node_cli("packages/video-assembler/src/cli.js", &assemble_args)?;
-        if !assemble_out.stderr.is_empty() {
-            emit_log(&app, &mut logs, assemble_out.stderr.trim_end().to_string());
-        }
+        stream_cli(
+            &app,
+            &mut logs,
+            "packages/video-assembler/src/cli.js",
+            &assemble_args,
+        )?;
         video_path = Some(to_node_path(&final_video).display().to_string());
 
         let chapters_file = work_dir.join("chapters.txt");
-        let chapters_out = run_node_cli(
+        let chapters_out = stream_cli(
+            &app,
+            &mut logs,
             "packages/chapters/src/cli.js",
             &[
                 OsString::from("--assemble-json"),
@@ -242,20 +349,27 @@ pub fn run_pipeline(app: AppHandle, request: PipelineRequest) -> Result<Pipeline
             chapters_text = chapters_out.stdout.trim().to_string();
         }
         chapters_path = Some(to_node_path(&chapters_file).display().to_string());
-        emit_log(&app, &mut logs, "Assembly + chapters done.");
+        emit_log(&app, &mut logs, format!("Assembly done: {}", final_video.display()));
     } else {
         let chapters_file = work_dir.join("chapters-estimated.txt");
         fs::write(&chapters_file, format!("{chapters_text}\n"))
             .map_err(|err| format!("write chapters: {err}"))?;
         chapters_path = Some(to_node_path(&chapters_file).display().to_string());
-        emit_log(
-            &app,
-            &mut logs,
-            "Dry-run / no clips: wrote estimated YouTube chapters (not ffprobe).",
-        );
+        if request.run_csdm && !request.dry_run {
+            emit_log(
+                &app,
+                &mut logs,
+                "CSDM finished but round mp4s were not found for assembly (expected sequence-*-tick-*-to-*.mp4).",
+            );
+        } else {
+            emit_log(
+                &app,
+                &mut logs,
+                "Dry-run / no clips: wrote estimated YouTube chapters (not ffprobe).",
+            );
+        }
     }
 
-    // Persist job state for resume UI
     let state = serde_json::json!({
         "steamId": request.steam_id,
         "playerName": request.player_name,
@@ -286,4 +400,14 @@ pub fn run_pipeline(app: AppHandle, request: PipelineRequest) -> Result<Pipeline
         mode,
         logs,
     })
+}
+
+#[tauri::command]
+pub async fn run_pipeline(
+    app: AppHandle,
+    request: PipelineRequest,
+) -> Result<PipelineResult, String> {
+    tauri::async_runtime::spawn_blocking(move || run_pipeline_inner(app, request))
+        .await
+        .map_err(|err| format!("Pipeline task failed: {err}"))?
 }
