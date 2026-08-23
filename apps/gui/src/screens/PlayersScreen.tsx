@@ -56,8 +56,10 @@ export function PlayersScreen({
                 >
                   <span className="player-name">{player.name}</span>
                   <span className="player-stats">
-                    {player.kills}/{player.deaths}/{player.assists} · K/D{" "}
-                    {kd(player.kills, player.deaths)}
+                    {player.kills}/{player.deaths}/{player.assists}
+                    {player.hltv_rating != null
+                      ? ` · Rating ${player.hltv_rating.toFixed(2)}`
+                      : ` · K/D ${kd(player.kills, player.deaths)}`}
                   </span>
                   <code className="player-id">{player.steam_id}</code>
                 </button>

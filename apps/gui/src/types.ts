@@ -22,6 +22,7 @@ export type DemoPlayer = {
   kills: number;
   deaths: number;
   assists: number;
+  hltv_rating?: number | null;
   user_id?: number | null;
   slot?: number | null;
   entity_id?: number | null;
@@ -91,6 +92,8 @@ export type ThumbnailVariant = {
 export type ThumbnailResult = {
   title: string;
   score: string;
+  hltvRating?: number;
+  ratingLabel?: string;
   mapLabel: string;
   outDir: string;
   variants: ThumbnailVariant[];

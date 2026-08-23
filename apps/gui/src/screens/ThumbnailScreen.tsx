@@ -8,6 +8,8 @@ type Props = {
   mapName: string;
   kills: number;
   deaths: number;
+  rounds: number;
+  rating: number | null;
   workDir: string | null;
   onBack: () => void;
   onRestart: () => void;
@@ -18,6 +20,8 @@ export function ThumbnailScreen({
   mapName,
   kills,
   deaths,
+  rounds,
+  rating,
   workDir,
   onBack,
   onRestart,
@@ -55,6 +59,8 @@ export function ThumbnailScreen({
           mapName,
           kills,
           deaths,
+          rounds,
+          rating,
           score,
           workDir,
           outDir: null,
@@ -124,8 +130,9 @@ export function ThumbnailScreen({
           />
         </label>
         <p className="hint">
-          Map : <strong>{mapName || "?"}</strong> — image tirée au hasard dans le dossier
-          correspondant.
+          Map : <strong>{mapName || "?"}</strong>
+          {rating != null ? ` · HLTV ${rating.toFixed(2)}` : rounds > 0 ? ` · ${rounds} rounds` : ""}{" "}
+          — image tirée au hasard dans le dossier correspondant.
         </p>
       </div>
 
@@ -142,6 +149,11 @@ export function ThumbnailScreen({
               </button>
             </div>
             <pre className="chapters-pre">{result.title}</pre>
+            {result.ratingLabel && (
+              <p className="hint" style={{ marginTop: "0.5rem" }}>
+                Affiché sur miniature : {result.ratingLabel}
+              </p>
+            )}
             <div className="inline-actions" style={{ marginTop: "0.75rem" }}>
               <button type="button" onClick={() => void openFolder()}>
                 Ouvrir le dossier

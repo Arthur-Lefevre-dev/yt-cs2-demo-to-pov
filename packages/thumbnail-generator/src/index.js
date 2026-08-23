@@ -7,7 +7,9 @@ export {
 } from "./generate.js";
 export {
   buildYoutubeTitle,
+  computeHltvRating,
   formatMapLabel,
+  formatRatingLabel,
   formatScore,
   normalizeMapKey,
   pickRandom,

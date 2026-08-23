@@ -3,9 +3,11 @@ import { resolve } from "node:path";
 import {
   buildOfficialRounds,
   countPlayerStats,
+  computeHltvRating1,
   firstDeathTick,
   inferMatchStartTick,
   inferTickrate,
+  killsInTickWindow,
   normalizeSteamId,
   sideFromTeamNum,
 } from "./rounds.js";
@@ -171,6 +173,15 @@ export function parseDemo(demoPath, options = {}) {
   const players = roster.map((player) => {
     const stats = countPlayerStats(officialDeaths, player.steam_id);
     const slotInfo = slotsBySteam.get(player.steam_id) ?? {};
+    const roundKillCounts = rounds.map((round) =>
+      killsInTickWindow(officialDeaths, player.steam_id, round.start_tick, round.end_tick),
+    );
+    const hltvRating = computeHltvRating1({
+      kills: stats.kills,
+      deaths: stats.deaths,
+      rounds: rounds.length,
+      roundKillCounts,
+    });
     return {
       ...player,
       user_id: slotInfo.user_id ?? null,
@@ -179,6 +190,7 @@ export function parseDemo(demoPath, options = {}) {
       kills: stats.kills,
       deaths: stats.deaths,
       assists: stats.assists,
+      hltv_rating: hltvRating,
     };
   });
 

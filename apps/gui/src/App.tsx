@@ -323,6 +323,8 @@ function App() {
             mapName={parseResult?.map ?? "de_unknown"}
             kills={selectedPlayer.kills}
             deaths={selectedPlayer.deaths}
+            rounds={parseResult?.rounds?.length ?? 0}
+            rating={selectedPlayer.hltv_rating ?? null}
             workDir={pipelineResult?.workDir ?? null}
             onBack={() => setScreen("result")}
             onRestart={restartJob}

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   buildOfficialRounds,
+  computeHltvRating1,
   countPlayerStats,
   firstDeathTick,
   inferMatchStartTick,
@@ -103,5 +104,32 @@ describe("firstDeathTick / countPlayerStats", () => {
   it("counts K/D/A", () => {
     assert.deepEqual(countPlayerStats(deaths, "A"), { kills: 1, deaths: 2, assists: 0 });
     assert.deepEqual(countPlayerStats(deaths, "C"), { kills: 0, deaths: 0, assists: 1 });
+  });
+});
+
+describe("computeHltvRating1", () => {
+  it("returns near 1.0 for average-ish stats", () => {
+    // 16 kills / 24 rounds ≈ 0.67 KPR, 8 survivals → around 0.8–1.0 on Rating 1.0
+    const rating = computeHltvRating1({
+      kills: 16,
+      deaths: 16,
+      rounds: 24,
+      roundKillCounts: Array.from({ length: 24 }, (_, i) => (i < 16 ? 1 : 0)),
+    });
+    assert.ok(rating > 0.75 && rating < 1.05, `got ${rating}`);
+  });
+
+  it("rates high KPR multi-kill games above 1.3", () => {
+    const rating = computeHltvRating1({
+      kills: 30,
+      deaths: 12,
+      rounds: 24,
+      roundKillCounts: [
+        ...Array.from({ length: 6 }, () => 3),
+        ...Array.from({ length: 6 }, () => 2),
+        ...Array.from({ length: 12 }, () => 0),
+      ],
+    });
+    assert.ok(rating >= 1.3, `got ${rating}`);
   });
 });

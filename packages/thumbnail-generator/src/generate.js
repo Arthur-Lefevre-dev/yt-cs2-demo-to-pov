@@ -4,15 +4,20 @@ import { basename, extname, join, resolve } from "node:path";
 import sharp from "sharp";
 import {
   buildYoutubeTitle,
+  computeHltvRating,
   escapeXml,
   formatMapLabel,
+  formatRatingLabel,
   formatScore,
   normalizeMapKey,
   pickRandom,
+  resolveKillsDeaths,
 } from "./utils.js";
 
 const W = 1280;
 const H = 720;
+/** Horizontal center for the text column (right of the player cutout). */
+const TEXT_X = 900;
 const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 
 /**
@@ -90,14 +95,25 @@ function textShadowFilter(id, dx = 4, dy = 4) {
 }
 
 /**
+ * Split "16-18" into kill / death parts for colored rendering.
+ * @param {string} score
+ */
+function splitKillDeath(score) {
+  const match = String(score).match(/^(\d+)\s*[-–]\s*(\d+)/);
+  if (!match) {
+    return { left: String(score), right: null };
+  }
+  return { left: match[1], right: match[2] };
+}
+
+/**
  * Style A — gold name + red kills (ZywOo-like).
  */
-function svgStyleGoldKills({ playerName, score, mapLabel }) {
+function svgStyleGoldKills({ playerName, score, ratingLabel, mapLabel }) {
   const name = escapeXml(playerName.toUpperCase());
-  const parts = String(score).split("-");
-  const kills = escapeXml(parts[0] ?? score);
-  const deaths = parts[1] != null ? escapeXml(parts[1]) : null;
-  const second = deaths != null ? `-${deaths}` : " KILLS";
+  const { left, right } = splitKillDeath(score);
+  const kills = escapeXml(left);
+  const second = right != null ? `-${escapeXml(right)}` : "";
   return Buffer.from(`
 <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -109,12 +125,13 @@ function svgStyleGoldKills({ playerName, score, mapLabel }) {
     </linearGradient>
   </defs>
   <g filter="url(#s)" font-family="Impact, Arial Black, sans-serif" font-weight="900">
-    <text x="620" y="280" fill="url(#gold)" font-size="112" stroke="#1a1200" stroke-width="10" paint-order="stroke fill">${name}</text>
-    <text x="620" y="430" font-size="96" stroke="#1a0000" stroke-width="8" paint-order="stroke fill">
+    <text x="${TEXT_X}" y="210" text-anchor="middle" fill="url(#gold)" font-size="148" stroke="#1a1200" stroke-width="12" paint-order="stroke fill">${name}</text>
+    <text x="${TEXT_X}" y="360" text-anchor="middle" font-size="128" stroke="#1a0000" stroke-width="10" paint-order="stroke fill">
       <tspan fill="#ff2a2a">${kills}</tspan>
       <tspan fill="#ffffff">${second}</tspan>
     </text>
-    <text x="620" y="520" fill="#ffffff" font-size="48" stroke="#000" stroke-width="6" paint-order="stroke fill">${escapeXml(mapLabel.toUpperCase())}</text>
+    <text x="${TEXT_X}" y="460" text-anchor="middle" fill="#ffffff" font-size="72" stroke="#000" stroke-width="8" paint-order="stroke fill">${escapeXml(ratingLabel)}</text>
+    <text x="${TEXT_X}" y="560" text-anchor="middle" fill="#ffffff" font-size="64" stroke="#000" stroke-width="8" paint-order="stroke fill">${escapeXml(mapLabel.toUpperCase())}</text>
   </g>
 </svg>`);
 }
@@ -122,16 +139,18 @@ function svgStyleGoldKills({ playerName, score, mapLabel }) {
 /**
  * Style B — white stack + yellow accents (ropz-like).
  */
-function svgStyleStack({ playerName, score, mapLabel }) {
+function svgStyleStack({ playerName, score, ratingLabel, mapLabel }) {
   const name = escapeXml(playerName);
   return Buffer.from(`
 <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
   <defs>${textShadowFilter("s", 3, 3)}</defs>
-  <g filter="url(#s)" font-family="Arial Black, Impact, sans-serif" font-weight="900" fill="#fff" stroke="#000" stroke-width="8" paint-order="stroke fill">
-    <text x="620" y="220" font-size="110">${name}</text>
-    <text x="620" y="340" font-size="92">${escapeXml(score)}</text>
-    <text x="620" y="440" font-size="56" fill="#f5c518" stroke="#000">${escapeXml(mapLabel)}</text>
-    <text x="620" y="520" font-size="42" fill="#f5c518" stroke="#000">POV</text>
+  <g filter="url(#s)" font-family="Arial Black, Impact, sans-serif" font-weight="900" fill="#fff" stroke="#000"
+     stroke-width="10" paint-order="stroke fill">
+    <text x="${TEXT_X}" y="180" text-anchor="middle" font-size="148">${name}</text>
+    <text x="${TEXT_X}" y="320" text-anchor="middle" font-size="124">${escapeXml(score)}</text>
+    <text x="${TEXT_X}" y="420" text-anchor="middle" font-size="68" fill="#f5c518" stroke="#000">${escapeXml(ratingLabel)}</text>
+    <text x="${TEXT_X}" y="520" text-anchor="middle" font-size="64" fill="#f5c518" stroke="#000">${escapeXml(mapLabel)}</text>
+    <text x="${TEXT_X}" y="600" text-anchor="middle" font-size="52" fill="#f5c518" stroke="#000">POV</text>
   </g>
 </svg>`);
 }
@@ -139,16 +158,17 @@ function svgStyleStack({ playerName, score, mapLabel }) {
 /**
  * Style C — big white italic name + score (m0NESY-like).
  */
-function svgStyleItalic({ playerName, score, mapLabel }) {
+function svgStyleItalic({ playerName, score, ratingLabel, mapLabel }) {
   const name = escapeXml(playerName.toUpperCase());
   return Buffer.from(`
 <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
   <defs>${textShadowFilter("s", 5, 5)}</defs>
   <g filter="url(#s)" font-family="Impact, Arial Black, sans-serif" font-style="italic" font-weight="900"
-     fill="#ffffff" stroke="#000000" stroke-width="12" paint-order="stroke fill">
-    <text x="560" y="300" font-size="128">${name}</text>
-    <text x="560" y="450" font-size="100">${escapeXml(score)}</text>
-    <text x="560" y="540" font-size="44" font-style="normal">${escapeXml(mapLabel.toUpperCase())} POV</text>
+     fill="#ffffff" stroke="#000000" stroke-width="14" paint-order="stroke fill">
+    <text x="${TEXT_X}" y="220" text-anchor="middle" font-size="168">${name}</text>
+    <text x="${TEXT_X}" y="380" text-anchor="middle" font-size="136">${escapeXml(score)}</text>
+    <text x="${TEXT_X}" y="490" text-anchor="middle" font-size="72" font-style="normal">${escapeXml(ratingLabel)}</text>
+    <text x="${TEXT_X}" y="590" text-anchor="middle" font-size="56" font-style="normal">${escapeXml(mapLabel.toUpperCase())} POV</text>
   </g>
 </svg>`);
 }
@@ -170,6 +190,8 @@ export async function generateThumbnails(options) {
     mapName,
     kills,
     deaths,
+    rounds,
+    rating: ratingOverride,
     score: scoreOverride,
     mapsRoot,
     outDir,
@@ -192,6 +214,18 @@ export async function generateThumbnails(options) {
   const backgroundPath = pickRandom(backgrounds, rng);
   const mapLabel = formatMapLabel(mapName);
   const score = formatScore({ kills, deaths, score: scoreOverride });
+  const { kills: resolvedKills, deaths: resolvedDeaths } = resolveKillsDeaths({
+    kills,
+    deaths,
+    score: scoreOverride,
+  });
+  const hltvRating = computeHltvRating({
+    kills: resolvedKills,
+    deaths: resolvedDeaths,
+    rounds,
+    rating: ratingOverride,
+  });
+  const ratingLabel = formatRatingLabel(hltvRating);
   const title = buildYoutubeTitle({
     playerName: playerName.trim(),
     score,
@@ -213,6 +247,7 @@ export async function generateThumbnails(options) {
     const svg = style.buildSvg({
       playerName: playerName.trim(),
       score,
+      ratingLabel,
       mapLabel,
     });
 
@@ -242,6 +277,8 @@ export async function generateThumbnails(options) {
     title,
     playerName: playerName.trim(),
     score,
+    hltvRating,
+    ratingLabel,
     map: normalizeMapKey(mapName),
     mapLabel,
     mapsDir: usedDir,
@@ -255,6 +292,8 @@ export async function generateThumbnails(options) {
   return {
     title,
     score,
+    hltvRating,
+    ratingLabel,
     mapLabel,
     outDir: outBase,
     metaPath,

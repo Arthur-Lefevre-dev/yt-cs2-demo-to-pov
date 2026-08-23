@@ -20,7 +20,9 @@ Required:
 Options:
   --kills <n>            Kills (default 0)
   --deaths <n>           Deaths (default 0)
-  --score <text>         Override score text (e.g. 16-18 or 34 KILLS)
+  --rounds <n>           Official rounds (for HLTV rating estimate)
+  --rating <n>           Override HLTV rating (e.g. 1.46)
+  --score <text>         Override score text (e.g. 16-18)
   --maps-root <path>     Default: fixtures/thumbnails/maps
   --help
 `);
@@ -35,6 +37,8 @@ async function main() {
       "out-dir": { type: "string" },
       kills: { type: "string" },
       deaths: { type: "string" },
+      rounds: { type: "string" },
+      rating: { type: "string" },
       score: { type: "string" },
       "maps-root": { type: "string" },
       help: { type: "boolean", short: "h", default: false },
@@ -62,6 +66,8 @@ async function main() {
     mapName: values.map,
     kills: values.kills ? Number(values.kills) : 0,
     deaths: values.deaths ? Number(values.deaths) : 0,
+    rounds: values.rounds ? Number(values.rounds) : undefined,
+    rating: values.rating ? Number(values.rating) : undefined,
     score: values.score,
     mapsRoot: values["maps-root"]
       ? resolve(values["maps-root"])

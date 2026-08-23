@@ -13,6 +13,8 @@ pub struct ThumbnailRequest {
     pub map_name: String,
     pub kills: Option<u32>,
     pub deaths: Option<u32>,
+    pub rounds: Option<u32>,
+    pub rating: Option<f64>,
     pub score: Option<String>,
     pub out_dir: Option<String>,
     pub work_dir: Option<String>,
@@ -68,6 +70,14 @@ pub fn generate_thumbnails(request: ThumbnailRequest) -> Result<ThumbnailResult,
     if let Some(deaths) = request.deaths {
         args.push(OsString::from("--deaths"));
         args.push(OsString::from(deaths.to_string()));
+    }
+    if let Some(rounds) = request.rounds {
+        args.push(OsString::from("--rounds"));
+        args.push(OsString::from(rounds.to_string()));
+    }
+    if let Some(rating) = request.rating {
+        args.push(OsString::from("--rating"));
+        args.push(OsString::from(rating.to_string()));
     }
     if let Some(score) = &request.score {
         if !score.trim().is_empty() {

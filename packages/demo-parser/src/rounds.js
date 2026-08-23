@@ -187,3 +187,67 @@ export function countPlayerStats(deaths, steamId) {
   }
   return { kills, deaths: deathsCount, assists };
 }
+
+/**
+ * Kills by a player inside a tick window (excludes team kills / suicide).
+ */
+export function killsInTickWindow(deaths, steamId, startTick, endTick) {
+  let kills = 0;
+  for (const death of deaths) {
+    const tick = eventTick(death);
+    if (tick < startTick || tick > endTick) {
+      continue;
+    }
+    const attacker = normalizeSteamId(death.attacker_steamid);
+    const victim = normalizeSteamId(death.user_steamid ?? death.victim_steamid ?? death.steamid);
+    if (attacker === steamId && victim !== steamId) {
+      kills += 1;
+    }
+  }
+  return kills;
+}
+
+/**
+ * HLTV Rating 1.0 (public formula from HLTV.org).
+ * @param {{ kills: number, deaths: number, rounds: number, roundKillCounts?: number[] }} input
+ */
+export function computeHltvRating1(input) {
+  const rounds = Math.max(0, Number(input.rounds) || 0);
+  if (rounds <= 0) {
+    return 0;
+  }
+  const kills = Math.max(0, Number(input.kills) || 0);
+  const deaths = Math.max(0, Number(input.deaths) || 0);
+  const counts =
+    Array.isArray(input.roundKillCounts) && input.roundKillCounts.length === rounds
+      ? input.roundKillCounts
+      : distributeKillsAcrossRounds(kills, rounds);
+
+  const kpr = kills / rounds;
+  const spr = Math.max(0, (rounds - Math.min(deaths, rounds)) / rounds);
+  let mkSum = 0;
+  for (const k of counts) {
+    if (k > 0) {
+      mkSum += k * k;
+    }
+  }
+  const killRating = kpr / 0.679;
+  const survivalRating = spr / 0.317;
+  const multiKillRating = mkSum / rounds / 1.277;
+  const rating = (killRating + 0.7 * survivalRating + multiKillRating) / 2.7;
+  return Math.round(rating * 100) / 100;
+}
+
+/**
+ * Spread kills evenly across rounds (fallback when per-round kills unknown).
+ */
+export function distributeKillsAcrossRounds(kills, rounds) {
+  const counts = Array.from({ length: rounds }, () => 0);
+  if (rounds <= 0 || kills <= 0) {
+    return counts;
+  }
+  for (let i = 0; i < kills; i++) {
+    counts[i % rounds] += 1;
+  }
+  return counts;
+}
