@@ -23,7 +23,7 @@ Options:
   --no-analyze         With --run, skip csdm analyze
   --death-notices-only Hide full HUD (cinematic); default is full POV HUD
   --no-true-view       Disable CS2 demo predict / true-view feel
-  --video-codec <name> libx264 | libx265 | hevc_nvenc | h264_nvenc (default libx264)
+  --video-codec <name> libx264 | libx265 | hevc_nvenc | h264_nvenc | hevc_amf | h264_amf
   --help
 `);
 }

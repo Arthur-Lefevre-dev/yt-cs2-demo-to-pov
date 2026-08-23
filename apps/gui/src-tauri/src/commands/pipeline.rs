@@ -21,7 +21,7 @@ pub struct PipelineRequest {
     pub commercial_label: Option<String>,
     /// Duration in seconds when commercial is a still image (ignored for video).
     pub commercial_seconds: Option<f64>,
-    /// FFmpeg video codec for HLAE + assemble: libx264 | libx265 | hevc_nvenc | h264_nvenc
+    /// FFmpeg video codec for HLAE + assemble (CPU / NVENC / AMF)
     pub video_codec: Option<String>,
     pub work_dir: Option<String>,
     /// dry_run = configs + estimated chapters only (no CSDM / no ffmpeg assemble)

@@ -28,10 +28,10 @@ describe("encoder profiles", () => {
     assert.equal(resolveVideoCodec("libx265"), "libx265");
   });
 
-  it("emits nvenc args without crf", () => {
-    const args = videoEncoderArgs("hevc_nvenc");
-    assert.equal(args[0], "hevc_nvenc");
-    assert.ok(args.includes("-cq"));
-    assert.ok(!args.includes("-crf"));
+  it("emits amd amf args", () => {
+    assert.equal(resolveVideoCodec("amd"), "hevc_amf");
+    const args = videoEncoderArgs("hevc_amf");
+    assert.equal(args[0], "hevc_amf");
+    assert.ok(args.includes("-qp_i"));
   });
 });

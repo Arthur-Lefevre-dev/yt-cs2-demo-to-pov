@@ -22,7 +22,7 @@ Options:
   --height <n>           Default 2160 (4K)
   --framerate <n>        Default 60
   --fade-seconds <n>     Fade to/from black on intro + commercial (default 0.5)
-  --video-codec <name>   libx264 | libx265 | hevc_nvenc | h264_nvenc (default libx264)
+  --video-codec <name>   libx264 | libx265 | hevc_nvenc | h264_nvenc | hevc_amf | h264_amf
   --help
 `);
 }

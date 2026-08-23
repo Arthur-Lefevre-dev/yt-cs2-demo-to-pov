@@ -8,7 +8,7 @@ Assemble une vidéo finale avec FFmpeg :
 4. **fondu au noir** (0,5 s) sur intro + commercial
 5. concat demuxer → un seul `.mp4`
 
-Codecs : `--video-codec libx264|libx265|hevc_nvenc|h264_nvenc` (même profil pour tous les segments).
+Codecs : `--video-codec libx264|libx265|hevc_nvenc|h264_nvenc|hevc_amf|h264_amf` (même profil pour tous les segments).
 
 ## CLI (PowerShell)
 

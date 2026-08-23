@@ -1,7 +1,7 @@
 /**
  * Shared FFmpeg video encoder profiles for assemble (and mirrored for CSDM).
  *
- * @typedef {"libx264" | "libx265" | "hevc_nvenc" | "h264_nvenc"} VideoCodec
+ * @typedef {"libx264" | "libx265" | "hevc_nvenc" | "h264_nvenc" | "hevc_amf" | "h264_amf"} VideoCodec
  */
 
 /** @type {Record<string, VideoCodec>} */
@@ -19,7 +19,17 @@ const ALIASES = {
   "h264-nvenc": "h264_nvenc",
   h264_nvenc: "h264_nvenc",
   nvenc: "hevc_nvenc",
+  "h265-amf": "hevc_amf",
+  "hevc-amf": "hevc_amf",
+  hevc_amf: "hevc_amf",
+  "h264-amf": "h264_amf",
+  h264_amf: "h264_amf",
+  amf: "hevc_amf",
+  amd: "hevc_amf",
 };
+
+const CODEC_HELP =
+  "libx264, libx265, hevc_nvenc, h264_nvenc, hevc_amf, h264_amf";
 
 /**
  * @param {string | undefined} value
@@ -32,9 +42,7 @@ export function resolveVideoCodec(value) {
   const key = String(value).trim().toLowerCase();
   const codec = ALIASES[key];
   if (!codec) {
-    throw new Error(
-      `Unknown video codec "${value}". Use: libx264, libx265, hevc_nvenc, h264_nvenc`,
-    );
+    throw new Error(`Unknown video codec "${value}". Use: ${CODEC_HELP}`);
   }
   return codec;
 }
@@ -90,6 +98,36 @@ export function videoEncoderArgs(codec, options = {}) {
         "-pix_fmt",
         "yuv420p",
       ];
+    case "hevc_amf":
+      return [
+        "hevc_amf",
+        "-quality",
+        "balanced",
+        "-rc",
+        "cqp",
+        "-qp_i",
+        String(crf),
+        "-qp_p",
+        String(crf),
+        "-tag:v",
+        "hvc1",
+        "-pix_fmt",
+        "yuv420p",
+      ];
+    case "h264_amf":
+      return [
+        "h264_amf",
+        "-quality",
+        "balanced",
+        "-rc",
+        "cqp",
+        "-qp_i",
+        String(crf),
+        "-qp_p",
+        String(crf),
+        "-pix_fmt",
+        "yuv420p",
+      ];
     case "libx264":
     default: {
       const args = ["libx264", "-crf", String(crf), "-pix_fmt", "yuv420p"];
@@ -102,6 +140,32 @@ export function videoEncoderArgs(codec, options = {}) {
 }
 
 /**
+ * Extra FFmpeg flags for CSDM HLAE `outputParameters` (CSDM still injects `-c:v`).
+ * @param {string} codec
+ * @param {number} crf
+ */
+export function csdmOutputParameters(codec, crf) {
+  if (codec === "hevc_nvenc" || codec === "h264_nvenc") {
+    let params = `-pix_fmt yuv420p -preset p4 -rc vbr -cq ${crf} -b:v 0`;
+    if (codec === "hevc_nvenc") {
+      params += " -tag:v hvc1";
+    }
+    return params;
+  }
+  if (codec === "hevc_amf" || codec === "h264_amf") {
+    let params = `-pix_fmt yuv420p -quality balanced -rc cqp -qp_i ${crf} -qp_p ${crf}`;
+    if (codec === "hevc_amf") {
+      params += " -tag:v hvc1";
+    }
+    return params;
+  }
+  if (codec === "libx265") {
+    return `-pix_fmt yuv420p -crf ${crf} -preset medium -tag:v hvc1`;
+  }
+  return "";
+}
+
+/**
  * CSDM `ffmpegSettings` fragment for HLAE streaming.
  * @param {VideoCodec} codec
  * @param {{ crf?: number, audioBitrate?: number }} [options]
@@ -109,20 +173,6 @@ export function videoEncoderArgs(codec, options = {}) {
 export function csdmFfmpegSettings(codec, options = {}) {
   const crf = options.crf ?? 23;
   const audioBitrate = options.audioBitrate ?? 256;
-  const isNvenc = codec === "hevc_nvenc" || codec === "h264_nvenc";
-
-  // When outputParameters is set, CSDM still injects -c:v <videoCodec>;
-  // put rate-control + pix_fmt here so NVENC does not get a bare -crf.
-  /** @type {string} */
-  let outputParameters = "";
-  if (isNvenc) {
-    outputParameters = `-pix_fmt yuv420p -preset p4 -rc vbr -cq ${crf} -b:v 0`;
-    if (codec === "hevc_nvenc") {
-      outputParameters += " -tag:v hvc1";
-    }
-  } else if (codec === "libx265") {
-    outputParameters = `-pix_fmt yuv420p -crf ${crf} -preset medium -tag:v hvc1`;
-  }
 
   return {
     audioBitrate,
@@ -133,6 +183,6 @@ export function csdmFfmpegSettings(codec, options = {}) {
     videoCodec: codec,
     audioCodec: "aac",
     inputParameters: "",
-    outputParameters,
+    outputParameters: csdmOutputParameters(codec, crf),
   };
 }

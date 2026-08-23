@@ -160,10 +160,12 @@ export function RenderScreen({
             <option value="libx265">H.265 CPU (libx265)</option>
             <option value="hevc_nvenc">H.265 GPU NVIDIA (hevc_nvenc)</option>
             <option value="h264_nvenc">H.264 GPU NVIDIA (h264_nvenc)</option>
+            <option value="hevc_amf">H.265 GPU AMD (hevc_amf)</option>
+            <option value="h264_amf">H.264 GPU AMD (h264_amf)</option>
           </select>
           <em className="hint" style={{ display: "block", marginTop: "0.35rem" }}>
-            NVENC nécessite un FFmpeg avec encodeurs NVIDIA et un GPU NVIDIA. Intro + pub
-            ont un fondu au noir (0,5 s).
+            NVIDIA = NVENC, AMD = AMF. FFmpeg doit inclure ces encodeurs (build full, pas
+            essentials). Intro + pub ont un fondu au noir (0,5 s).
           </em>
         </label>
         <label className="option field">

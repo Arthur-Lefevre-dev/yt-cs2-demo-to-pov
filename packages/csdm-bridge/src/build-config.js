@@ -195,11 +195,22 @@ export function buildCsdmVideoConfig(parsed, options) {
  */
 function buildFfmpegSettings(videoCodec, crf) {
   const codec = String(videoCodec);
-  const isNvenc = codec === "hevc_nvenc" || codec === "h264_nvenc";
+  const isGpu =
+    codec === "hevc_nvenc" ||
+    codec === "h264_nvenc" ||
+    codec === "hevc_amf" ||
+    codec === "h264_amf";
+
+  /** @type {string} */
   let outputParameters = "";
-  if (isNvenc) {
+  if (codec === "hevc_nvenc" || codec === "h264_nvenc") {
     outputParameters = `-pix_fmt yuv420p -preset p4 -rc vbr -cq ${crf} -b:v 0`;
     if (codec === "hevc_nvenc") {
+      outputParameters += " -tag:v hvc1";
+    }
+  } else if (codec === "hevc_amf" || codec === "h264_amf") {
+    outputParameters = `-pix_fmt yuv420p -quality balanced -rc cqp -qp_i ${crf} -qp_p ${crf}`;
+    if (codec === "hevc_amf") {
       outputParameters += " -tag:v hvc1";
     }
   } else if (codec === "libx265") {
@@ -215,7 +226,8 @@ function buildFfmpegSettings(videoCodec, crf) {
     videoCodec: codec,
     audioCodec: "aac",
     inputParameters: "",
-    outputParameters,
+    // GPU encoders: avoid CSDM's default -crf which NVENC/AMF reject or ignore poorly.
+    outputParameters: isGpu || codec === "libx265" ? outputParameters : "",
   };
 }
 
