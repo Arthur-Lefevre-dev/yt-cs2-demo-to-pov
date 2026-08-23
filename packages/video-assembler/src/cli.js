@@ -21,6 +21,8 @@ Options:
   --width <n>            Default 3840 (4K)
   --height <n>           Default 2160 (4K)
   --framerate <n>        Default 60
+  --fade-seconds <n>     Fade to/from black on intro + commercial (default 0.5)
+  --video-codec <name>   libx264 | libx265 | hevc_nvenc | h264_nvenc (default libx264)
   --help
 `);
 }
@@ -40,6 +42,8 @@ async function main() {
       width: { type: "string" },
       height: { type: "string" },
       framerate: { type: "string" },
+      "fade-seconds": { type: "string" },
+      "video-codec": { type: "string" },
       help: { type: "boolean", short: "h", default: false },
     },
   });
@@ -82,6 +86,8 @@ async function main() {
     width: values.width ? Number(values.width) : 3840,
     height: values.height ? Number(values.height) : 2160,
     framerate: values.framerate ? Number(values.framerate) : 60,
+    fadeSeconds: values["fade-seconds"] ? Number(values["fade-seconds"]) : 0.5,
+    videoCodec: values["video-codec"] || "libx264",
     onLog: (line) => process.stderr.write(line),
   });
 

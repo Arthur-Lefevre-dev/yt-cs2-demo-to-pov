@@ -36,6 +36,7 @@ function App() {
   const [commercialPath, setCommercialPath] = useState<string | null>(null);
   const [commercialLabel, setCommercialLabel] = useState("Sponsors");
   const [commercialSeconds, setCommercialSeconds] = useState(5);
+  const [videoCodec, setVideoCodec] = useState("libx264");
   const [pipelineRunning, setPipelineRunning] = useState(false);
   const [pipelineError, setPipelineError] = useState<string | null>(null);
   const [pipelineLogs, setPipelineLogs] = useState<string[]>([]);
@@ -148,6 +149,7 @@ function App() {
           commercialPath,
           commercialLabel,
           commercialSeconds,
+          videoCodec,
           dryRun,
           runCsdm: dryRun ? false : runCsdm,
           roundClipPaths: null,
@@ -298,6 +300,7 @@ function App() {
             commercialPath={commercialPath}
             commercialLabel={commercialLabel}
             commercialSeconds={commercialSeconds}
+            videoCodec={videoCodec}
             csdmReady={Boolean(prerequisites?.items.find((i) => i.id === "csdm")?.found)}
             csdmPath={prerequisites?.items.find((i) => i.id === "csdm")?.path ?? null}
             logs={pipelineLogs}
@@ -319,6 +322,7 @@ function App() {
             onCommercialPathChange={setCommercialPath}
             onCommercialLabelChange={setCommercialLabel}
             onCommercialSecondsChange={setCommercialSeconds}
+            onVideoCodecChange={setVideoCodec}
             onLogsOpenChange={setLogsOpen}
             onStart={() => void handlePipeline()}
             onBack={() => setScreen("rounds")}

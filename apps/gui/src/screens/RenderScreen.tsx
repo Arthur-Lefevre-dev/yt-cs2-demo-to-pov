@@ -8,6 +8,7 @@ type Props = {
   commercialPath: string | null;
   commercialLabel: string;
   commercialSeconds: number;
+  videoCodec: string;
   csdmReady: boolean;
   csdmPath: string | null;
   logs: string[];
@@ -19,6 +20,7 @@ type Props = {
   onCommercialPathChange: (value: string | null) => void;
   onCommercialLabelChange: (value: string) => void;
   onCommercialSecondsChange: (value: number) => void;
+  onVideoCodecChange: (value: string) => void;
   onLogsOpenChange: (value: boolean) => void;
   onStart: () => void;
   onBack: () => void;
@@ -39,6 +41,7 @@ export function RenderScreen({
   commercialPath,
   commercialLabel,
   commercialSeconds,
+  videoCodec,
   csdmReady,
   csdmPath,
   logs,
@@ -50,6 +53,7 @@ export function RenderScreen({
   onCommercialPathChange,
   onCommercialLabelChange,
   onCommercialSecondsChange,
+  onVideoCodecChange,
   onLogsOpenChange,
   onStart,
   onBack,
@@ -144,6 +148,23 @@ export function RenderScreen({
             disabled={running}
             onChange={(event) => onIntroSecondsChange(Number(event.target.value) || 4)}
           />
+        </label>
+        <label className="option field">
+          <span>Codec vidéo (HLAE + assemble)</span>
+          <select
+            value={videoCodec}
+            disabled={running}
+            onChange={(event) => onVideoCodecChange(event.target.value)}
+          >
+            <option value="libx264">H.264 CPU (libx264) — défaut</option>
+            <option value="libx265">H.265 CPU (libx265)</option>
+            <option value="hevc_nvenc">H.265 GPU NVIDIA (hevc_nvenc)</option>
+            <option value="h264_nvenc">H.264 GPU NVIDIA (h264_nvenc)</option>
+          </select>
+          <em className="hint" style={{ display: "block", marginTop: "0.35rem" }}>
+            NVENC nécessite un FFmpeg avec encodeurs NVIDIA et un GPU NVIDIA. Intro + pub
+            ont un fondu au noir (0,5 s).
+          </em>
         </label>
         <label className="option field">
           <span>Placement commercial (après Round 1)</span>

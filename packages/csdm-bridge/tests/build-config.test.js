@@ -57,6 +57,18 @@ describe("buildCsdmVideoConfig", () => {
     assert.equal(config.demoPath, "C:\\demos\\match.dem");
     assert.equal(config.recordingSystem, "HLAE");
     assert.equal(config.encoderSoftware, "FFmpeg");
+    assert.equal(config.ffmpegSettings.videoCodec, "libx264");
+    assert.equal(config.ffmpegSettings.outputParameters, "");
+
+    const nvenc = buildCsdmVideoConfig(parsed, {
+      steamId: "111",
+      outputFolderPath: "/tmp/out",
+      rounds: [1],
+      videoCodec: "hevc_nvenc",
+    });
+    assert.equal(nvenc.ffmpegSettings.videoCodec, "hevc_nvenc");
+    assert.match(nvenc.ffmpegSettings.outputParameters, /-cq 23/);
+    assert.match(nvenc.ffmpegSettings.outputParameters, /-preset p4/);
     assert.equal(config.concatenateSequences, false);
     assert.equal(config.sequences.length, 1);
 

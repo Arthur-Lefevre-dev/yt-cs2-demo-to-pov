@@ -23,6 +23,7 @@ Options:
   --no-analyze         With --run, skip csdm analyze
   --death-notices-only Hide full HUD (cinematic); default is full POV HUD
   --no-true-view       Disable CS2 demo predict / true-view feel
+  --video-codec <name> libx264 | libx265 | hevc_nvenc | h264_nvenc (default libx264)
   --help
 `);
 }
@@ -52,6 +53,7 @@ async function main() {
       "no-analyze": { type: "boolean", default: false },
       "death-notices-only": { type: "boolean", default: false },
       "no-true-view": { type: "boolean", default: false },
+      "video-codec": { type: "string" },
       help: { type: "boolean", short: "h", default: false },
     },
   });
@@ -75,6 +77,7 @@ async function main() {
     framerate: values.framerate ? Number(values.framerate) : undefined,
     showOnlyDeathNotices: values["death-notices-only"] ? true : false,
     trueView: values["no-true-view"] ? false : true,
+    videoCodec: values["video-codec"] || "libx264",
   });
 
   if (values.split || config.sequences.length === 1) {

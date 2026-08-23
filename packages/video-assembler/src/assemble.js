@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve } from "node:path";
-import { resolveBinary, runProcess } from "./ffmpeg.js";
+import { resolveVideoCodec, videoEncoderArgs } from "./encoder.js";
+import { probeDurationSeconds, resolveBinary, runProcess } from "./ffmpeg.js";
 
 const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"]);
 const VIDEO_EXTS = new Set([".mp4", ".mov", ".mkv", ".webm", ".m4v", ".avi"]);
@@ -21,7 +22,46 @@ export function mediaKind(filePath) {
 }
 
 /**
- * Create a silent still-image clip from a lobby screenshot.
+ * Fade in/out duration clamped so short clips still work.
+ * @param {number} durationSeconds
+ * @param {number} fadeSeconds
+ */
+export function clampFadeSeconds(durationSeconds, fadeSeconds) {
+  if (!(fadeSeconds > 0) || !(durationSeconds > 0)) {
+    return 0;
+  }
+  return Math.min(fadeSeconds, durationSeconds / 3);
+}
+
+/**
+ * Scale/pad (+ optional fps) and optional fade to/from black.
+ * @param {{ width: number, height: number, framerate?: number, durationSeconds?: number, fadeSeconds?: number }} opts
+ */
+export function buildVideoFilters({
+  width,
+  height,
+  framerate,
+  durationSeconds,
+  fadeSeconds = 0,
+}) {
+  const parts = [
+    `scale=${width}:${height}:force_original_aspect_ratio=decrease`,
+    `pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`,
+  ];
+  if (framerate) {
+    parts.push(`fps=${framerate}`);
+  }
+  const fade = clampFadeSeconds(durationSeconds ?? 0, fadeSeconds);
+  if (fade > 0 && durationSeconds != null) {
+    const fadeOutStart = Math.max(0, Number((durationSeconds - fade).toFixed(3)));
+    parts.push(`fade=t=in:st=0:d=${fade}:color=black`);
+    parts.push(`fade=t=out:st=${fadeOutStart}:d=${fade}:color=black`);
+  }
+  return parts.join(",");
+}
+
+/**
+ * Create a silent still-image clip (intro / commercial image) with fade to black.
  */
 export async function makeIntroClip({
   imagePath,
@@ -30,12 +70,22 @@ export async function makeIntroClip({
   width = 3840,
   height = 2160,
   framerate = 60,
+  fadeSeconds = 0.5,
+  videoCodec = "libx264",
   ffmpegPath,
   onLog,
 }) {
   const ffmpeg = resolveBinary("ffmpeg", ffmpegPath);
   const out = resolve(outputPath);
   await mkdir(dirname(out), { recursive: true });
+
+  const codec = resolveVideoCodec(videoCodec);
+  const vf = buildVideoFilters({
+    width,
+    height,
+    durationSeconds,
+    fadeSeconds,
+  });
 
   const args = [
     "-y",
@@ -50,15 +100,11 @@ export async function makeIntroClip({
     "-t",
     String(durationSeconds),
     "-c:v",
-    "libx264",
-    "-tune",
-    "stillimage",
-    "-pix_fmt",
-    "yuv420p",
+    ...videoEncoderArgs(codec, { stillImage: codec === "libx264" }),
     "-r",
     String(framerate),
     "-vf",
-    `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`,
+    vf,
     "-c:a",
     "aac",
     "-b:a",
@@ -82,6 +128,8 @@ export async function normalizeClip({
   width = 3840,
   height = 2160,
   framerate = 60,
+  fadeSeconds = 0,
+  videoCodec = "libx264",
   ffmpegPath,
   onLog,
 }) {
@@ -89,16 +137,28 @@ export async function normalizeClip({
   const out = resolve(outputPath);
   await mkdir(dirname(out), { recursive: true });
 
+  const codec = resolveVideoCodec(videoCodec);
+  let durationSeconds;
+  if (fadeSeconds > 0) {
+    durationSeconds = await probeDurationSeconds(resolve(inputPath));
+  }
+
+  const vf = buildVideoFilters({
+    width,
+    height,
+    framerate,
+    durationSeconds,
+    fadeSeconds,
+  });
+
   const args = [
     "-y",
     "-i",
     resolve(inputPath),
     "-vf",
-    `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${framerate}`,
+    vf,
     "-c:v",
-    "libx264",
-    "-pix_fmt",
-    "yuv420p",
+    ...videoEncoderArgs(codec),
     "-c:a",
     "aac",
     "-b:a",
@@ -176,6 +236,9 @@ export async function assembleVideo({
   commercialLabel = "Sponsors",
   /** Duration when commercial is a still image (ignored for video). */
   commercialSeconds = 5,
+  /** Fade to/from black on intro + commercial (seconds each edge). */
+  fadeSeconds = 0.5,
+  videoCodec = "libx264",
   outputPath,
   workDir,
   width = 3840,
@@ -188,6 +251,7 @@ export async function assembleVideo({
     throw new Error("assembleVideo requires at least one round clip");
   }
 
+  const codec = resolveVideoCodec(videoCodec);
   const out = resolve(outputPath);
   const dir = resolve(workDir ?? join(dirname(out), "_assemble"));
   await mkdir(dir, { recursive: true });
@@ -206,6 +270,8 @@ export async function assembleVideo({
       width,
       height,
       framerate,
+      fadeSeconds,
+      videoCodec: codec,
       ffmpegPath,
       onLog,
     });
@@ -224,6 +290,7 @@ export async function assembleVideo({
       width,
       height,
       framerate,
+      videoCodec: codec,
       ffmpegPath,
       onLog,
     });
@@ -242,6 +309,8 @@ export async function assembleVideo({
           width,
           height,
           framerate,
+          fadeSeconds,
+          videoCodec: codec,
           ffmpegPath,
           onLog,
         });
@@ -252,6 +321,8 @@ export async function assembleVideo({
           width,
           height,
           framerate,
+          fadeSeconds,
+          videoCodec: codec,
           ffmpegPath,
           onLog,
         });
@@ -280,5 +351,7 @@ export async function assembleVideo({
     commercialLabel: hasCommercial ? commercialLabel : null,
     commercialSeconds: hasCommercial ? commercialSeconds : 0,
     commercialKind: hasCommercial ? mediaKind(commercialPath) : null,
+    fadeSeconds,
+    videoCodec: codec,
   };
 }

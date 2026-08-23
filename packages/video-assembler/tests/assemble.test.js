@@ -78,6 +78,8 @@ describe("video-assembler integration", () => {
       assert.equal(assembled.clipPaths.length, 3);
       assert.equal(assembled.introIncluded, true);
       assert.deepEqual(assembled.clipKinds, ["intro", "round", "round"]);
+      assert.equal(assembled.fadeSeconds, 0.5);
+      assert.equal(assembled.videoCodec, "libx264");
 
       const chapters = await chaptersFromAssembleResult(assembled);
       assert.match(chapters.text, /^0:00 Lobby\n/);

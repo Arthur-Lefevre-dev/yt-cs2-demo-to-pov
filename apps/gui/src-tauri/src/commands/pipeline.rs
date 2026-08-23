@@ -21,6 +21,8 @@ pub struct PipelineRequest {
     pub commercial_label: Option<String>,
     /// Duration in seconds when commercial is a still image (ignored for video).
     pub commercial_seconds: Option<f64>,
+    /// FFmpeg video codec for HLAE + assemble: libx264 | libx265 | hevc_nvenc | h264_nvenc
+    pub video_codec: Option<String>,
     pub work_dir: Option<String>,
     /// dry_run = configs + estimated chapters only (no CSDM / no ffmpeg assemble)
     pub dry_run: bool,
@@ -254,6 +256,13 @@ fn run_pipeline_inner(app: AppHandle, request: PipelineRequest) -> Result<Pipeli
         OsString::from("--framerate"),
         OsString::from("60"),
     ];
+    let video_codec = request
+        .video_codec
+        .as_deref()
+        .unwrap_or("libx264")
+        .to_string();
+    config_args.push(OsString::from("--video-codec"));
+    config_args.push(OsString::from(&video_codec));
     if request.run_csdm && !request.dry_run {
         config_args.push(OsString::from("--run"));
         emit_log(
@@ -393,7 +402,16 @@ fn run_pipeline_inner(app: AppHandle, request: PipelineRequest) -> Result<Pipeli
             OsString::from("2160"),
             OsString::from("--framerate"),
             OsString::from("60"),
+            OsString::from("--fade-seconds"),
+            OsString::from("0.5"),
+            OsString::from("--video-codec"),
+            OsString::from(&video_codec),
         ];
+        emit_log(
+            &app,
+            &mut logs,
+            format!("Assemble / HLAE video codec: {video_codec}"),
+        );
         if let Some(lobby) = &request.lobby_path {
             if PathBuf::from(lobby).is_file() {
                 assemble_args.push(OsString::from("--lobby"));

@@ -60,6 +60,8 @@ export function buildCsdmVideoConfig(parsed, options) {
   // YouTube POV: full player HUD (radar, health, alive teammates) — not death-notices-only.
   const showOnlyDeathNotices = options.showOnlyDeathNotices ?? false;
   const trueView = options.trueView ?? true;
+  const videoCodec = options.videoCodec ?? "libx264";
+  const constantRateFactor = options.constantRateFactor ?? 23;
   const mapSlug = (parsed.map ?? "map").replace(/[^\w-]+/g, "_");
   const tickrate = Math.round(Number(parsed.tickrate) || 64);
 
@@ -182,18 +184,38 @@ export function buildCsdmVideoConfig(parsed, options) {
     closeGameAfterRecording: options.closeGameAfterRecording ?? true,
     concatenateSequences: false,
     trueView,
-    ffmpegSettings: {
-      audioBitrate: 256,
-      constantRateFactor: 23,
-      customLocationEnabled: false,
-      customExecutableLocation: "",
-      videoContainer: "mp4",
-      videoCodec: "libx264",
-      audioCodec: "aac",
-      inputParameters: "",
-      outputParameters: "",
-    },
+    ffmpegSettings: buildFfmpegSettings(videoCodec, constantRateFactor),
     sequences,
+  };
+}
+
+/**
+ * @param {string} videoCodec
+ * @param {number} crf
+ */
+function buildFfmpegSettings(videoCodec, crf) {
+  const codec = String(videoCodec);
+  const isNvenc = codec === "hevc_nvenc" || codec === "h264_nvenc";
+  let outputParameters = "";
+  if (isNvenc) {
+    outputParameters = `-pix_fmt yuv420p -preset p4 -rc vbr -cq ${crf} -b:v 0`;
+    if (codec === "hevc_nvenc") {
+      outputParameters += " -tag:v hvc1";
+    }
+  } else if (codec === "libx265") {
+    outputParameters = `-pix_fmt yuv420p -crf ${crf} -preset medium -tag:v hvc1`;
+  }
+
+  return {
+    audioBitrate: 256,
+    constantRateFactor: crf,
+    customLocationEnabled: false,
+    customExecutableLocation: "",
+    videoContainer: "mp4",
+    videoCodec: codec,
+    audioCodec: "aac",
+    inputParameters: "",
+    outputParameters,
   };
 }
 

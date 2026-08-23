@@ -70,3 +70,26 @@ export function runProcess(command, args, { onLog } = {}) {
     });
   });
 }
+
+/**
+ * @param {string} inputPath
+ * @param {{ ffprobePath?: string }} [options]
+ * @returns {Promise<number>}
+ */
+export async function probeDurationSeconds(inputPath, { ffprobePath } = {}) {
+  const ffprobe = resolveBinary("ffprobe", ffprobePath);
+  const { stdout } = await runProcess(ffprobe, [
+    "-v",
+    "error",
+    "-show_entries",
+    "format=duration",
+    "-of",
+    "default=noprint_wrappers=1:nokey=1",
+    inputPath,
+  ]);
+  const seconds = Number.parseFloat(String(stdout).trim());
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    throw new Error(`Could not probe duration for ${inputPath}`);
+  }
+  return seconds;
+}
