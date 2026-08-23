@@ -27,6 +27,7 @@ export function ThumbnailScreen({
   onRestart,
 }: Props) {
   const [photoPath, setPhotoPath] = useState<string | null>(null);
+  const [teamLogoPath, setTeamLogoPath] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState(initialName);
   const [score, setScore] = useState(`${kills}-${deaths}`);
   const [running, setRunning] = useState(false);
@@ -44,6 +45,16 @@ export function ThumbnailScreen({
     }
   }
 
+  async function pickTeamLogo() {
+    const selected = await open({
+      multiple: false,
+      filters: [{ name: "Image", extensions: ["png", "jpg", "jpeg", "webp", "svg"] }],
+    });
+    if (typeof selected === "string") {
+      setTeamLogoPath(selected);
+    }
+  }
+
   async function generate() {
     if (!photoPath) {
       setError("Choisis une photo du joueur.");
@@ -55,6 +66,7 @@ export function ThumbnailScreen({
       const generated = await invoke<ThumbnailResult>("generate_thumbnails", {
         request: {
           playerPhotoPath: photoPath,
+          teamLogoPath,
           playerName: displayName,
           mapName,
           kills,
@@ -97,7 +109,8 @@ export function ThumbnailScreen({
         <h1>Miniatures YouTube</h1>
         <p className="lede">
           3 variantes A/B + titre. Fonds maps :{" "}
-          <code>fixtures/thumbnails/maps/&lt;map&gt;/</code>
+          <code>fixtures/thumbnails/maps/&lt;map&gt;/</code> · logos équipe :{" "}
+          <code>fixtures/thumbnails/teams/</code>
         </p>
       </header>
 
@@ -109,6 +122,24 @@ export function ThumbnailScreen({
               Choisir…
             </button>
             <code className="path">{photoPath ?? "aucune"}</code>
+          </div>
+        </label>
+        <label className="option field">
+          <span>Logo équipe (optionnel, filigrane derrière le joueur)</span>
+          <div className="inline-actions">
+            <button type="button" onClick={() => void pickTeamLogo()} disabled={running}>
+              Choisir…
+            </button>
+            {teamLogoPath && (
+              <button
+                type="button"
+                onClick={() => setTeamLogoPath(null)}
+                disabled={running}
+              >
+                Retirer
+              </button>
+            )}
+            <code className="path">{teamLogoPath ?? "aucun"}</code>
           </div>
         </label>
         <label className="option field">

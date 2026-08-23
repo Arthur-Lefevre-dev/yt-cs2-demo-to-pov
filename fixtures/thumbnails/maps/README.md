@@ -29,4 +29,6 @@ fixtures/thumbnails/maps/
 - Plusieurs images par map → une est choisie **au hasard** (et peut varier entre les 3 variantes A/B)
 - Nom du dossier = nom de map CSDM (`de_nuke`, `de_mirage`, …)
 
-Le générateur compose : fond map (flou / saturé) + photo joueur (gauche) + texte (nom, score, map).
+Le générateur compose : fond map (flou / saturé) + logo équipe optionnel (filigrane) + photo joueur (gauche) + texte (nom, score, rating, map).
+
+Logos d'équipe : voir [`../teams/README.md`](../teams/README.md).

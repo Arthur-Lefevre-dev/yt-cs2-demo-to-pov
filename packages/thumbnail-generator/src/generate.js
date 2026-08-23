@@ -22,6 +22,9 @@ const TEXT_X = 900;
 const PLAYER_WIDTH_RATIO = 0.54;
 const PLAYER_HEIGHT_RATIO = 1;
 const PLAYER_LEFT = 8;
+/** Large watermark behind the player cutout. */
+const TEAM_LOGO_SIZE_RATIO = 0.72;
+const TEAM_LOGO_OPACITY = 0.28;
 const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 
 /**
@@ -88,6 +91,74 @@ async function preparePlayerCutout(playerPhotoPath) {
       position: "bottom",
     })
     .png()
+    .toBuffer();
+}
+
+/**
+ * Apply uniform opacity to an RGBA image buffer.
+ * @param {Buffer} imageBuffer
+ * @param {number} opacity 0–1
+ */
+async function applyImageOpacity(imageBuffer, opacity) {
+  const alpha = Math.max(0, Math.min(1, opacity));
+  const { data, info } = await sharp(imageBuffer)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  for (let i = 3; i < data.length; i += 4) {
+    data[i] = Math.round(data[i] * alpha);
+  }
+
+  return sharp(data, {
+    raw: { width: info.width, height: info.height, channels: 4 },
+  })
+    .png()
+    .toBuffer();
+}
+
+/**
+ * Team logo watermark centered behind the player on the left.
+ * @param {string} teamLogoPath
+ * @param {{ opacity?: number, sizeRatio?: number }} [options]
+ */
+async function prepareTeamLogo(teamLogoPath, options = {}) {
+  const opacity = options.opacity ?? TEAM_LOGO_OPACITY;
+  const size = Math.round(H * (options.sizeRatio ?? TEAM_LOGO_SIZE_RATIO));
+  const logoBuf = await sharp(teamLogoPath)
+    .rotate()
+    .resize(size, size, {
+      fit: "contain",
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .ensureAlpha()
+    .png()
+    .toBuffer();
+
+  const faded = await applyImageOpacity(logoBuf, opacity);
+  const meta = await sharp(faded).metadata();
+  const width = meta.width ?? size;
+  const height = meta.height ?? size;
+  const playerZoneCenterX = PLAYER_LEFT + Math.round((W * PLAYER_WIDTH_RATIO) / 2);
+  const left = Math.round(playerZoneCenterX - width / 2);
+  const top = Math.round(H / 2 - height / 2);
+
+  return {
+    buffer: faded,
+    left: Math.max(0, left),
+    top: Math.max(0, top),
+    width,
+    height,
+  };
+}
+
+/**
+ * @param {Array<{ input: Buffer, left?: number, top?: number }>} layers
+ */
+function compositeThumbnail(bgBuf, layers) {
+  return sharp(bgBuf)
+    .composite(layers)
+    .jpeg({ quality: 90, mozjpeg: true })
     .toBuffer();
 }
 
@@ -189,6 +260,7 @@ const STYLES = [
 export async function generateThumbnails(options) {
   const {
     playerPhotoPath,
+    teamLogoPath,
     playerName,
     mapName,
     kills,
@@ -204,6 +276,9 @@ export async function generateThumbnails(options) {
 
   if (!playerPhotoPath || !existsSync(playerPhotoPath)) {
     throw new Error(`Player photo not found: ${playerPhotoPath}`);
+  }
+  if (teamLogoPath && !existsSync(teamLogoPath)) {
+    throw new Error(`Team logo not found: ${teamLogoPath}`);
   }
   if (!playerName?.trim()) {
     throw new Error("playerName is required");
@@ -240,6 +315,7 @@ export async function generateThumbnails(options) {
   const playerMeta = await sharp(playerBuf).metadata();
   const playerLeft = PLAYER_LEFT;
   const playerTop = Math.max(0, H - (playerMeta.height ?? Math.round(H * PLAYER_HEIGHT_RATIO)));
+  const teamLogo = teamLogoPath ? await prepareTeamLogo(teamLogoPath) : null;
   const variants = [];
 
   for (let i = 0; i < STYLES.length; i++) {
@@ -254,13 +330,19 @@ export async function generateThumbnails(options) {
       mapLabel,
     });
 
-    const composed = await sharp(bgBuf)
-      .composite([
-        { input: playerBuf, left: playerLeft, top: playerTop },
-        { input: svg, top: 0, left: 0 },
-      ])
-      .jpeg({ quality: 90, mozjpeg: true })
-      .toBuffer();
+    /** @type {Array<{ input: Buffer, left?: number, top?: number }>} */
+    const layers = [];
+    if (teamLogo) {
+      layers.push({
+        input: teamLogo.buffer,
+        left: teamLogo.left,
+        top: teamLogo.top,
+      });
+    }
+    layers.push({ input: playerBuf, left: playerLeft, top: playerTop });
+    layers.push({ input: svg, top: 0, left: 0 });
+
+    const composed = await compositeThumbnail(bgBuf, layers);
 
     const fileName = `thumb-v${i + 1}-${style.id}.jpg`;
     const filePath = join(outBase, fileName);
@@ -282,6 +364,7 @@ export async function generateThumbnails(options) {
     score,
     hltvRating,
     ratingLabel,
+    teamLogoPath: teamLogoPath ? resolve(teamLogoPath) : null,
     map: normalizeMapKey(mapName),
     mapLabel,
     mapsDir: usedDir,

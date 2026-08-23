@@ -9,6 +9,7 @@ use std::path::PathBuf;
 #[serde(rename_all = "camelCase")]
 pub struct ThumbnailRequest {
     pub player_photo_path: String,
+    pub team_logo_path: Option<String>,
     pub player_name: String,
     pub map_name: String,
     pub kills: Option<u32>,
@@ -84,6 +85,14 @@ pub fn generate_thumbnails(request: ThumbnailRequest) -> Result<ThumbnailResult,
             args.push(OsString::from("--score"));
             args.push(OsString::from(score.trim()));
         }
+    }
+    if let Some(team_logo) = &request.team_logo_path {
+        let logo = to_node_path(PathBuf::from(team_logo));
+        if !logo.is_file() {
+            return Err(format!("Team logo not found: {team_logo}"));
+        }
+        args.push(OsString::from("--team-logo"));
+        args.push(logo.as_os_str().to_os_string());
     }
 
     let output = run_node_cli("packages/thumbnail-generator/src/cli.js", &args)?;

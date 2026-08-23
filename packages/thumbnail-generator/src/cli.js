@@ -23,6 +23,7 @@ Options:
   --rounds <n>           Official rounds (for HLTV rating estimate)
   --rating <n>           Override HLTV rating (e.g. 1.46)
   --score <text>         Override score text (e.g. 16-18)
+  --team-logo <path>     Optional team logo PNG (watermark behind player)
   --maps-root <path>     Default: fixtures/thumbnails/maps
   --help
 `);
@@ -40,6 +41,7 @@ async function main() {
       rounds: { type: "string" },
       rating: { type: "string" },
       score: { type: "string" },
+      "team-logo": { type: "string" },
       "maps-root": { type: "string" },
       help: { type: "boolean", short: "h", default: false },
     },
@@ -62,6 +64,7 @@ async function main() {
 
   const result = await generateThumbnails({
     playerPhotoPath: resolve(values["player-photo"]),
+    teamLogoPath: values["team-logo"] ? resolve(values["team-logo"]) : undefined,
     playerName: values.name,
     mapName: values.map,
     kills: values.kills ? Number(values.kills) : 0,

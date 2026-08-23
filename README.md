@@ -118,6 +118,6 @@ Flux UI :
 6. **Résultat** — dossier job, copier le chapitrage YouTube
 7. **Miniatures** — photo joueur + 3 variantes A/B + titre YouTube
 
-Fonds de map pour les miniatures : `fixtures/thumbnails/maps/<de_nuke|de_mirage|…>/` (voir le README dedans).
+Fonds de map pour les miniatures : `fixtures/thumbnails/maps/<de_nuke|de_mirage|…>/` · logos équipe (optionnel) : `fixtures/thumbnails/teams/` (voir les README dedans).
 
 Les jobs écrivent sous `fixtures/output/jobs/<joueur>-<map>/` (`parsed.json`, configs CSDM, `chapters-estimated.txt`, `job-state.json`).
