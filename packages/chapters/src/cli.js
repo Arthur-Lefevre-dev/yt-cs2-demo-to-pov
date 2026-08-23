@@ -7,12 +7,13 @@ import { buildChapters, chaptersFromAssembleResult } from "./chapters.js";
 function printHelp() {
   console.log(`Usage:
   node src/cli.js --clips Lobby=intro.mp4,Round 1=r1.mp4 [--out chapters.txt]
-  node src/cli.js --assemble-json assemble-result.json [--out chapters.txt]
+  node src/cli.js --assemble-json assemble-result.json [--round-labels "Round 1 Clutch|Round 2 3K USP"] [--out chapters.txt]
 
 Options:
-  --clips <label=path,...>   Ordered chapter clips
-  --assemble-json <path>     JSON from video-assembler CLI stdout
-  --out <path>               Write chapter text to file
+  --clips <label=path,...>     Ordered chapter clips
+  --assemble-json <path>       JSON from video-assembler CLI stdout
+  --round-labels <a|b|c>       Labels for round clips (pipe-separated, order = selected rounds)
+  --out <path>                 Write chapter text to file
   --help
 `);
 }
@@ -22,6 +23,7 @@ async function main() {
     options: {
       clips: { type: "string" },
       "assemble-json": { type: "string" },
+      "round-labels": { type: "string" },
       out: { type: "string" },
       help: { type: "boolean", short: "h", default: false },
     },
@@ -37,7 +39,10 @@ async function main() {
   if (values["assemble-json"]) {
     const { readFile } = await import("node:fs/promises");
     const assembleResult = JSON.parse(await readFile(resolve(values["assemble-json"]), "utf8"));
-    result = await chaptersFromAssembleResult(assembleResult);
+    const roundLabels = values["round-labels"]
+      ? values["round-labels"].split("|").map((part) => part.trim()).filter(Boolean)
+      : undefined;
+    result = await chaptersFromAssembleResult(assembleResult, { roundLabels });
   } else {
     const clips = values.clips.split(",").map((part) => {
       const idx = part.indexOf("=");

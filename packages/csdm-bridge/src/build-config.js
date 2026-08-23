@@ -100,22 +100,39 @@ export function buildCsdmVideoConfig(parsed, options) {
       .filter((id) => id != null);
     const { valueLow, valueHigh } = generatePlayerVoicesValues(voiceUserIds);
 
-    // CS2 first-person POV + full HUD (radar / HP / teammates alive).
+    // CS2 first-person POV: live-player HUD (radar / HP / money / ammo / killfeed).
+    // Hide CS2 demo playback UI (timeline / demoui) — not the game HUD.
     const cfgLines = [
       "spec_mode 1",
       `spec_player ${player.slot}`,
+      // Full in-game HUD like when the player is alive in-match.
       "cl_drawhud 1",
       "cl_draw_only_deathnotices 0",
+      "r_drawviewmodel 1",
+      "hud_showtargetid 1",
       "cl_radar_always_centered 0",
+      "spec_show_xray 0",
+      // Hide demo navigation / demoui (Shift+F2 panel, timeline).
+      "demo_ui_mode 0",
+      // Clean debug overlays.
+      "cl_showfps 0",
+      "net_graph 0",
+      "developer 0",
+      // Hide end-of-match / TrueView telemetry chrome when present.
+      "mirv_endofmatch enabled 1",
+      "mirv_panorama panelStyle panelId=trueview_row opacity=0",
       `tv_listen_voice_indices ${valueLow}`,
       `tv_listen_voice_indices_h ${valueHigh}`,
-      // Re-apply focus a few times around freeze end (gototick can drop early specs).
+      // Re-apply focus + HUD / hide demoui after freezetime (gototick can drop early cmds).
       `mirv_cmd clear`,
       `mirv_cmd addAtTick ${cameraTick} "spec_mode 1"`,
       `mirv_cmd addAtTick ${cameraTick} "spec_player ${player.slot}"`,
       `mirv_cmd addAtTick ${cameraTick + Math.max(8, Math.round(tickrate / 4))} "spec_player ${player.slot}"`,
       `mirv_cmd addAtTick ${cameraTick} "cl_drawhud 1"`,
       `mirv_cmd addAtTick ${cameraTick} "cl_draw_only_deathnotices 0"`,
+      `mirv_cmd addAtTick ${cameraTick} "r_drawviewmodel 1"`,
+      `mirv_cmd addAtTick ${cameraTick} "demo_ui_mode 0"`,
+      `mirv_cmd addAtTick ${cameraTick} "mirv_panorama panelStyle panelId=trueview_row opacity=0"`,
     ];
 
     return {

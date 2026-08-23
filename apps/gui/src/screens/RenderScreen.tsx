@@ -7,6 +7,7 @@ type Props = {
   introSeconds: number;
   commercialPath: string | null;
   commercialLabel: string;
+  commercialSeconds: number;
   csdmReady: boolean;
   csdmPath: string | null;
   logs: string[];
@@ -17,10 +18,18 @@ type Props = {
   onIntroSecondsChange: (value: number) => void;
   onCommercialPathChange: (value: string | null) => void;
   onCommercialLabelChange: (value: string) => void;
+  onCommercialSecondsChange: (value: number) => void;
   onLogsOpenChange: (value: boolean) => void;
   onStart: () => void;
   onBack: () => void;
 };
+
+function isImagePath(path: string | null): boolean {
+  if (!path) {
+    return false;
+  }
+  return /\.(png|jpe?g|webp|bmp|gif)$/i.test(path);
+}
 
 export function RenderScreen({
   running,
@@ -29,6 +38,7 @@ export function RenderScreen({
   introSeconds,
   commercialPath,
   commercialLabel,
+  commercialSeconds,
   csdmReady,
   csdmPath,
   logs,
@@ -39,6 +49,7 @@ export function RenderScreen({
   onIntroSecondsChange,
   onCommercialPathChange,
   onCommercialLabelChange,
+  onCommercialSecondsChange,
   onLogsOpenChange,
   onStart,
   onBack,
@@ -46,12 +57,18 @@ export function RenderScreen({
   async function pickCommercial() {
     const selected = await open({
       multiple: false,
-      filters: [{ name: "Vidéo", extensions: ["mp4", "mov", "mkv", "webm"] }],
+      filters: [
+        { name: "Vidéo ou image", extensions: ["mp4", "mov", "mkv", "webm", "png", "jpg", "jpeg", "webp"] },
+        { name: "Vidéo", extensions: ["mp4", "mov", "mkv", "webm"] },
+        { name: "Image", extensions: ["png", "jpg", "jpeg", "webp"] },
+      ],
     });
     if (typeof selected === "string") {
       onCommercialPathChange(selected);
     }
   }
+
+  const commercialIsImage = isImagePath(commercialPath);
 
   return (
     <section className="screen">
@@ -132,7 +149,7 @@ export function RenderScreen({
           <span>Placement commercial (après Round 1)</span>
           <div className="inline-actions">
             <button type="button" onClick={() => void pickCommercial()} disabled={running}>
-              Choisir vidéo…
+              Choisir vidéo / image…
             </button>
             {commercialPath && (
               <button
@@ -146,21 +163,38 @@ export function RenderScreen({
             <code className="path">{commercialPath ?? "aucun"}</code>
           </div>
           <em className="hint" style={{ display: "block", marginTop: "0.35rem" }}>
-            MP4/MOV optionnel, normalisé en 4K60 et inséré juste après le 1er round
-            dans le final + chapitre YouTube.
+            Vidéo (mp4/mov…) ou image (png/jpg…) — inséré après le 1er round + chapitre
+            YouTube.
           </em>
         </label>
         {commercialPath && (
-          <label className="option field">
-            <span>Label chapitre commercial</span>
-            <input
-              type="text"
-              value={commercialLabel}
-              disabled={running}
-              placeholder="Sponsors"
-              onChange={(event) => onCommercialLabelChange(event.target.value)}
-            />
-          </label>
+          <>
+            <label className="option field">
+              <span>Label chapitre commercial</span>
+              <input
+                type="text"
+                value={commercialLabel}
+                disabled={running}
+                placeholder="Sponsors"
+                onChange={(event) => onCommercialLabelChange(event.target.value)}
+              />
+            </label>
+            {commercialIsImage && (
+              <label className="option field">
+                <span>Durée image (secondes)</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={commercialSeconds}
+                  disabled={running}
+                  onChange={(event) =>
+                    onCommercialSecondsChange(Number(event.target.value) || 5)
+                  }
+                />
+              </label>
+            )}
+          </>
         )}
       </div>
 

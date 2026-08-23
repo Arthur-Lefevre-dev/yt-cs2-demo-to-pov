@@ -51,6 +51,10 @@ export type PlayerRound = {
   survived: boolean;
   winner: string | null;
   estimated_clip_seconds: number | null;
+  kills_in_round?: number;
+  highlight_weapon?: string | null;
+  clutch?: boolean;
+  chapter_label?: string | null;
 };
 
 export type ParseResult = {

@@ -13,8 +13,9 @@ Options:
   --clips <paths>        Comma-separated round clips (required)
   --lobby <image>        FACEIT lobby screenshot for intro
   --intro-seconds <n>    Intro duration (default 4)
-  --commercial <video>   Optional ad/sponsor clip inserted after Round 1
+  --commercial <path>    Optional ad after Round 1 (video mp4/mov OR image png/jpg)
   --commercial-label <t> Chapter label (default Sponsors)
+  --commercial-seconds <n> Duration when commercial is an image (default 5)
   --work-dir <path>      Temp/normalized clips folder
   --result-json <path>   Also write assemble result JSON here
   --width <n>            Default 3840 (4K)
@@ -33,6 +34,7 @@ async function main() {
       "intro-seconds": { type: "string" },
       commercial: { type: "string" },
       "commercial-label": { type: "string" },
+      "commercial-seconds": { type: "string" },
       "work-dir": { type: "string" },
       "result-json": { type: "string" },
       width: { type: "string" },
@@ -72,6 +74,9 @@ async function main() {
     roundClipPaths,
     commercialPath: values.commercial ? resolve(values.commercial) : undefined,
     commercialLabel: values["commercial-label"] || "Sponsors",
+    commercialSeconds: values["commercial-seconds"]
+      ? Number(values["commercial-seconds"])
+      : 5,
     outputPath,
     workDir: values["work-dir"] ? resolve(values["work-dir"]) : undefined,
     width: values.width ? Number(values.width) : 3840,

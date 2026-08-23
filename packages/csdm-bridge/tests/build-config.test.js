@@ -11,10 +11,10 @@ const parsed = {
   map: "de_mirage",
   tickrate: 64,
   players: [
-    { steam_id: "111", name: "Alpha" },
-    { steam_id: "222", name: "Bravo" },
-    { steam_id: "333", name: "Charlie" },
-    { steam_id: "444", name: "Delta" },
+    { steam_id: "111", name: "Alpha", user_id: 0, slot: 1 },
+    { steam_id: "222", name: "Bravo", user_id: 1, slot: 2 },
+    { steam_id: "333", name: "Charlie", user_id: 2, slot: 3 },
+    { steam_id: "444", name: "Delta", user_id: 3, slot: 4 },
   ],
   player_rounds: [
     {
@@ -65,8 +65,14 @@ describe("buildCsdmVideoConfig", () => {
     assert.equal(sequence.endTick, 2500);
     assert.equal(sequence.playerVoicesEnabled, true);
     assert.deepEqual(sequence.playerCameras, [
-      { tick: 1000, playerSteamId: "111", playerName: "Alpha" },
+      { tick: 1601, playerSteamId: "111", playerName: "Alpha" },
     ]);
+    assert.equal(sequence.showOnlyDeathNotices, false);
+    assert.match(sequence.cfg, /demo_ui_mode 0/);
+    assert.match(sequence.cfg, /cl_drawhud 1/);
+    assert.match(sequence.cfg, /cl_draw_only_deathnotices 0/);
+    assert.match(sequence.cfg, /r_drawviewmodel 1/);
+    assert.match(sequence.cfg, /spec_player 1/);
 
     const voices = Object.fromEntries(
       sequence.playersOptions.map((opt) => [opt.steamId, opt.isVoiceEnabled]),

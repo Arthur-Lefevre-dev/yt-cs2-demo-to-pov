@@ -204,6 +204,18 @@ tv_listen_voice_indices_h 0
 Les aliases `voice_ct` / `voice_t` **ne doivent pas** être utilisés pour être
 stricts sur le camp courant : ils sont figés au camp de départ.
 
+## HUD POV (comme en jeu) + sans UI démo
+
+Dans `sequences[].cfg` (et via `mirv_cmd` après freezetime) :
+
+- **HUD joueur complet** : `cl_drawhud 1`, `cl_draw_only_deathnotices 0`,
+  `r_drawviewmodel 1`, `hud_showtargetid 1` + JSON `showOnlyDeathNotices: false`
+  → radar, HP, argent, munitions, killfeed, coéquipiers (comme l’image POV live).
+- **Masquer la navigation démo CS2** : `demo_ui_mode 0` (timeline / demoui Shift+F2).
+- Nettoyage : `cl_showfps 0`, `net_graph 0`, TrueView telemetry opacity 0.
+
+Ne pas utiliser `cl_draw_only_deathnotices 1` pour du contenu YouTube POV classique.
+
 ## Caméra POV
 
 CSDM CS2 (code `createCs2VideoJsonFile`) fait pour chaque `playerCameras[]` :

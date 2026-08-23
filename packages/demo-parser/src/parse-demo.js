@@ -17,6 +17,7 @@ import {
   formatMatchup,
   inferEventName,
 } from "./match-meta.js";
+import { analyzeRoundHighlight, formatRoundChapterLabel } from "./highlights.js";
 
 const EVENT_NAMES = [
   "begin_new_match",
@@ -228,6 +229,18 @@ export function parseDemo(demoPath, options = {}) {
       const clipEndTick = deathTick ?? round.end_tick;
       const estimatedSeconds =
         tickrate > 0 ? Number(((clipEndTick - round.start_tick) / tickrate).toFixed(2)) : null;
+      const survived = deathTick === null;
+      const highlight = analyzeRoundHighlight({
+        deaths: officialDeaths,
+        steamId: player.steam_id,
+        startTick: round.start_tick,
+        endTick: round.end_tick,
+        teamSteamIds,
+        survived,
+        playerSide: side,
+        winner: round.winner,
+      });
+      const chapterLabel = formatRoundChapterLabel(round.round_number, highlight);
 
       playerRounds.push({
         steam_id: player.steam_id,
@@ -240,9 +253,13 @@ export function parseDemo(demoPath, options = {}) {
         clip_end_tick: clipEndTick,
         player_side: side,
         team_steam_ids: teamSteamIds,
-        survived: deathTick === null,
+        survived,
         winner: round.winner,
         estimated_clip_seconds: estimatedSeconds,
+        kills_in_round: highlight.kills,
+        highlight_weapon: highlight.weapon,
+        clutch: highlight.clutch,
+        chapter_label: chapterLabel,
       });
     }
   }

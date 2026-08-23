@@ -19,3 +19,9 @@ export {
   formatMatchup,
   inferEventName,
 } from "./match-meta.js";
+export {
+  analyzeRoundHighlight,
+  dominantWeapon,
+  formatRoundChapterLabel,
+  shortWeaponName,
+} from "./highlights.js";

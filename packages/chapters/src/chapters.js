@@ -78,6 +78,8 @@ export async function buildChapters(clips, { ffprobePath } = {}) {
 
 /**
  * Convenience: intro + Round N (+ optional Sponsors after R1) from assembler result.
+ * @param {object} assembleResult
+ * @param {{ ffprobePath?: string, roundLabels?: string[] }} [options]
  */
 export async function chaptersFromAssembleResult(assembleResult, { ffprobePath, roundLabels } = {}) {
   /** @type {ChapterClip[]} */
@@ -85,6 +87,7 @@ export async function chaptersFromAssembleResult(assembleResult, { ffprobePath, 
   const paths = assembleResult.clipPaths ?? [];
   const kinds = assembleResult.clipKinds;
   const commercialLabel = assembleResult.commercialLabel || "Sponsors";
+  const labels = roundLabels ?? assembleResult.roundLabels ?? [];
   let roundIndex = 0;
 
   for (let i = 0; i < paths.length; i += 1) {
@@ -104,7 +107,7 @@ export async function chaptersFromAssembleResult(assembleResult, { ffprobePath, 
       clips.push({ label: commercialLabel, path });
       continue;
     }
-    const label = roundLabels?.[roundIndex] ?? `Round ${roundIndex + 1}`;
+    const label = labels[roundIndex] || `Round ${roundIndex + 1}`;
     clips.push({ label, path });
     roundIndex += 1;
   }

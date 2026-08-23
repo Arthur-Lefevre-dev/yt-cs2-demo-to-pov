@@ -19,6 +19,8 @@ pub struct PipelineRequest {
     /// Optional commercial / sponsor clip inserted after Round 1 in the final video.
     pub commercial_path: Option<String>,
     pub commercial_label: Option<String>,
+    /// Duration in seconds when commercial is a still image (ignored for video).
+    pub commercial_seconds: Option<f64>,
     pub work_dir: Option<String>,
     /// dry_run = configs + estimated chapters only (no CSDM / no ffmpeg assemble)
     pub dry_run: bool,
@@ -91,7 +93,15 @@ fn estimated_chapters(
             .and_then(|entry| entry.get("estimated_clip_seconds"))
             .and_then(|v| v.as_f64())
             .unwrap_or(30.0);
-        lines.push(format!("{} Round {round_number}", format_ts(cursor)));
+        lines.push(format!(
+            "{} {}",
+            format_ts(cursor),
+            row.and_then(|entry| entry.get("chapter_label"))
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| format!("Round {round_number}"))
+        ));
         cursor += duration;
 
         if commercial_after_r1 && index == 0 {
@@ -284,6 +294,7 @@ fn run_pipeline_inner(app: AppHandle, request: PipelineRequest) -> Result<Pipeli
         .filter(|s| !s.is_empty())
         .unwrap_or("Sponsors")
         .to_string();
+    let commercial_seconds = request.commercial_seconds.unwrap_or(5.0).max(1.0);
     let commercial_path = request.commercial_path.as_ref().and_then(|path| {
         let p = PathBuf::from(path);
         if p.is_file() {
@@ -302,13 +313,30 @@ fn run_pipeline_inner(app: AppHandle, request: PipelineRequest) -> Result<Pipeli
         }
     }
     let has_commercial = commercial_path.is_some();
+    let commercial_is_image = commercial_path
+        .as_ref()
+        .and_then(|p| p.extension())
+        .and_then(|e| e.to_str())
+        .map(|e| {
+            matches!(
+                e.to_ascii_lowercase().as_str(),
+                "png" | "jpg" | "jpeg" | "webp" | "bmp" | "gif"
+            )
+        })
+        .unwrap_or(false);
+    // Dry-run chapter estimate: exact for stills; placeholder for video duration.
+    let estimated_ad_seconds = if commercial_is_image {
+        commercial_seconds
+    } else {
+        15.0
+    };
     let mut chapters_text = estimated_chapters(
         &request.parse_result,
         &request.steam_id,
         &request.rounds,
         intro_seconds,
         has_commercial,
-        15.0,
+        estimated_ad_seconds,
         &commercial_label,
     );
     let mut video_path: Option<String> = None;
@@ -389,13 +417,16 @@ fn run_pipeline_inner(app: AppHandle, request: PipelineRequest) -> Result<Pipeli
             assemble_args.push(commercial.as_os_str().to_os_string());
             assemble_args.push(OsString::from("--commercial-label"));
             assemble_args.push(OsString::from(&commercial_label));
+            assemble_args.push(OsString::from("--commercial-seconds"));
+            assemble_args.push(OsString::from(commercial_seconds.to_string()));
             emit_log(
                 &app,
                 &mut logs,
                 format!(
-                    "Commercial placement after Round 1: {} ({})",
+                    "Commercial placement after Round 1: {} ({}, {}s if image)",
                     commercial.display(),
-                    commercial_label
+                    commercial_label,
+                    commercial_seconds
                 ),
             );
         }
@@ -409,16 +440,46 @@ fn run_pipeline_inner(app: AppHandle, request: PipelineRequest) -> Result<Pipeli
         video_path = Some(to_node_path(&final_video).display().to_string());
 
         let chapters_file = work_dir.join("chapters.txt");
+        let round_labels: Vec<String> = request
+            .rounds
+            .iter()
+            .map(|round_number| {
+                let player_rounds = request
+                    .parse_result
+                    .get("player_rounds")
+                    .and_then(|v| v.as_array())
+                    .cloned()
+                    .unwrap_or_default();
+                player_rounds
+                    .iter()
+                    .find(|entry| {
+                        entry.get("steam_id").and_then(|v| v.as_str()) == Some(request.steam_id.as_str())
+                            && entry.get("round_number").and_then(|v| v.as_u64())
+                                == Some(u64::from(*round_number))
+                    })
+                    .and_then(|entry| entry.get("chapter_label"))
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.is_empty())
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| format!("Round {round_number}"))
+            })
+            .collect();
+        let labels_joined = round_labels.join("|");
+        let mut chapter_args = vec![
+            OsString::from("--assemble-json"),
+            result_json.as_os_str().to_os_string(),
+            OsString::from("--out"),
+            chapters_file.as_os_str().to_os_string(),
+        ];
+        if !labels_joined.is_empty() {
+            chapter_args.push(OsString::from("--round-labels"));
+            chapter_args.push(OsString::from(&labels_joined));
+        }
         let chapters_out = stream_cli(
             &app,
             &mut logs,
             "packages/chapters/src/cli.js",
-            &[
-                OsString::from("--assemble-json"),
-                result_json.as_os_str().to_os_string(),
-                OsString::from("--out"),
-                chapters_file.as_os_str().to_os_string(),
-            ],
+            &chapter_args,
         )?;
         if !chapters_out.stdout.trim().is_empty() {
             chapters_text = chapters_out.stdout.trim().to_string();

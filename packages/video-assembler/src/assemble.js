@@ -1,6 +1,24 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, extname, join, resolve } from "node:path";
 import { resolveBinary, runProcess } from "./ffmpeg.js";
+
+const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"]);
+const VIDEO_EXTS = new Set([".mp4", ".mov", ".mkv", ".webm", ".m4v", ".avi"]);
+
+/**
+ * @param {string} filePath
+ * @returns {"image" | "video" | "unknown"}
+ */
+export function mediaKind(filePath) {
+  const ext = extname(filePath).toLowerCase();
+  if (IMAGE_EXTS.has(ext)) {
+    return "image";
+  }
+  if (VIDEO_EXTS.has(ext)) {
+    return "video";
+  }
+  return "unknown";
+}
 
 /**
  * Create a silent still-image clip from a lobby screenshot.
@@ -156,6 +174,8 @@ export async function assembleVideo({
   roundClipPaths,
   commercialPath,
   commercialLabel = "Sponsors",
+  /** Duration when commercial is a still image (ignored for video). */
+  commercialSeconds = 5,
   outputPath,
   workDir,
   width = 3840,
@@ -210,18 +230,32 @@ export async function assembleVideo({
     normalized.push(normalizedPath);
     clipKinds.push("round");
 
-    // Insert commercial placement after the first round clip.
+    // Insert commercial placement after the first round clip (video or still image).
     if (hasCommercial && index === 0) {
       const adPath = join(dir, "01b-commercial.mp4");
-      await normalizeClip({
-        inputPath: commercialPath,
-        outputPath: adPath,
-        width,
-        height,
-        framerate,
-        ffmpegPath,
-        onLog,
-      });
+      const kind = mediaKind(commercialPath);
+      if (kind === "image") {
+        await makeIntroClip({
+          imagePath: commercialPath,
+          outputPath: adPath,
+          durationSeconds: commercialSeconds,
+          width,
+          height,
+          framerate,
+          ffmpegPath,
+          onLog,
+        });
+      } else {
+        await normalizeClip({
+          inputPath: commercialPath,
+          outputPath: adPath,
+          width,
+          height,
+          framerate,
+          ffmpegPath,
+          onLog,
+        });
+      }
       normalized.push(adPath);
       clipKinds.push("commercial");
     }
@@ -244,5 +278,7 @@ export async function assembleVideo({
     introSeconds: lobbyImagePath ? introSeconds : 0,
     commercialIncluded: hasCommercial,
     commercialLabel: hasCommercial ? commercialLabel : null,
+    commercialSeconds: hasCommercial ? commercialSeconds : 0,
+    commercialKind: hasCommercial ? mediaKind(commercialPath) : null,
   };
 }

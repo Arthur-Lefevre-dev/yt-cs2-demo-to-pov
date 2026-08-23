@@ -35,6 +35,7 @@ function App() {
   const [introSeconds, setIntroSeconds] = useState(4);
   const [commercialPath, setCommercialPath] = useState<string | null>(null);
   const [commercialLabel, setCommercialLabel] = useState("Sponsors");
+  const [commercialSeconds, setCommercialSeconds] = useState(5);
   const [pipelineRunning, setPipelineRunning] = useState(false);
   const [pipelineError, setPipelineError] = useState<string | null>(null);
   const [pipelineLogs, setPipelineLogs] = useState<string[]>([]);
@@ -146,6 +147,7 @@ function App() {
           introSeconds,
           commercialPath,
           commercialLabel,
+          commercialSeconds,
           dryRun,
           runCsdm: dryRun ? false : runCsdm,
           roundClipPaths: null,
@@ -174,6 +176,7 @@ function App() {
     setRunCsdm(false);
     setCommercialPath(null);
     setCommercialLabel("Sponsors");
+    setCommercialSeconds(5);
   }
 
   return (
@@ -294,6 +297,7 @@ function App() {
             introSeconds={introSeconds}
             commercialPath={commercialPath}
             commercialLabel={commercialLabel}
+            commercialSeconds={commercialSeconds}
             csdmReady={Boolean(prerequisites?.items.find((i) => i.id === "csdm")?.found)}
             csdmPath={prerequisites?.items.find((i) => i.id === "csdm")?.path ?? null}
             logs={pipelineLogs}
@@ -314,6 +318,7 @@ function App() {
             onIntroSecondsChange={setIntroSeconds}
             onCommercialPathChange={setCommercialPath}
             onCommercialLabelChange={setCommercialLabel}
+            onCommercialSecondsChange={setCommercialSeconds}
             onLogsOpenChange={setLogsOpen}
             onStart={() => void handlePipeline()}
             onBack={() => setScreen("rounds")}

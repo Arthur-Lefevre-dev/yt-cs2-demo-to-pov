@@ -69,6 +69,7 @@ export function RoundsScreen({
             <tr>
               <th></th>
               <th>#</th>
+              <th>Highlight</th>
               <th>Side</th>
               <th>Résultat</th>
               <th>Mort / live</th>
@@ -90,6 +91,7 @@ export function RoundsScreen({
                     />
                   </td>
                   <td>{row.round_number}</td>
+                  <td>{row.chapter_label ?? `Round ${row.round_number}`}</td>
                   <td>{row.player_side}</td>
                   <td>{won ? "Win" : "Loss"}</td>
                   <td>{row.survived ? "Survécu" : `Mort @ ${row.player_death_tick}`}</td>
