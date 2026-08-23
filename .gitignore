@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build
+dist/
+apps/gui/src-tauri/target/
+*.exe
+*.pdb
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Logs and local state
+*.log
+.cache/
+tmp/
+
+# Large binary fixtures (downloaded, not committed)
+fixtures/*.dem
+fixtures/*.dem.info
+!fixtures/.gitkeep
+
+# Generated parser output
+fixtures/output/
+*.dem.json

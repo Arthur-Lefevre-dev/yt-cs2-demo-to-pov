@@ -1,0 +1,17 @@
+{
+  "name": "@yt-cs2/video-assembler",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ffmpeg: lobby intro + normalize + concat round clips",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "bin": {
+    "cs2-video-assembler": "./src/cli.js"
+  },
+  "scripts": {
+    "assemble": "node src/cli.js",
+    "test": "node --test tests/*.test.js"
+  }
+}

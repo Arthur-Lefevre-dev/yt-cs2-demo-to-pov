@@ -1,0 +1,26 @@
+{
+  "name": "yt-cs2-demo-to-pov",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Desktop app that turns a FACEIT CS2 demo into a YouTube-style POV video",
+  "workspaces": [
+    "apps/gui",
+    "packages/*"
+  ],
+  "scripts": {
+    "parse": "npm run parse --workspace @yt-cs2/demo-parser --",
+    "parse:fixture": "npm run parse --workspace @yt-cs2/demo-parser -- --demo fixtures/faceit-1-efdaace4-2fd4-4884-babf-1a5a2c83e344.dem",
+    "test:parser": "npm test --workspace @yt-cs2/demo-parser",
+    "test:csdm": "npm test --workspace @yt-cs2/csdm-bridge",
+    "test:assemble": "npm test --workspace @yt-cs2/video-assembler",
+    "test:chapters": "npm test --workspace @yt-cs2/chapters",
+    "csdm:config": "node packages/csdm-bridge/src/cli.js",
+    "assemble": "node packages/video-assembler/src/cli.js",
+    "chapters": "node packages/chapters/src/cli.js",
+    "fixtures:download": "node fixtures/download-fixtures.mjs",
+    "dev": "npm run tauri --workspace gui -- dev"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

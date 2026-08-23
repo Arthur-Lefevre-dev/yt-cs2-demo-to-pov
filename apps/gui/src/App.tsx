@@ -1,0 +1,294 @@
+import { useCallback, useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { SetupScreen } from "./screens/SetupScreen";
+import { ImportScreen } from "./screens/ImportScreen";
+import { PlayersScreen } from "./screens/PlayersScreen";
+import { RoundsScreen } from "./screens/RoundsScreen";
+import { RenderScreen } from "./screens/RenderScreen";
+import { ResultScreen } from "./screens/ResultScreen";
+import type {
+  AppScreen,
+  ParseResult,
+  PipelineResult,
+  PrerequisitesReport,
+} from "./types";
+import "./App.css";
+
+function App() {
+  const [screen, setScreen] = useState<AppScreen>("setup");
+  const [prereqLoading, setPrereqLoading] = useState(false);
+  const [prereqError, setPrereqError] = useState<string | null>(null);
+  const [prerequisites, setPrerequisites] = useState<PrerequisitesReport | null>(null);
+
+  const [demoPath, setDemoPath] = useState<string | null>(null);
+  const [lobbyPath, setLobbyPath] = useState<string | null>(null);
+  const [parsing, setParsing] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [parseResult, setParseResult] = useState<ParseResult | null>(null);
+  const [selectedSteamId, setSelectedSteamId] = useState<string | null>(null);
+  const [selectedRounds, setSelectedRounds] = useState<number[]>([]);
+
+  const [dryRun, setDryRun] = useState(true);
+  const [runCsdm, setRunCsdm] = useState(false);
+  const [introSeconds, setIntroSeconds] = useState(4);
+  const [pipelineRunning, setPipelineRunning] = useState(false);
+  const [pipelineError, setPipelineError] = useState<string | null>(null);
+  const [pipelineLogs, setPipelineLogs] = useState<string[]>([]);
+  const [logsOpen, setLogsOpen] = useState(true);
+  const [pipelineResult, setPipelineResult] = useState<PipelineResult | null>(null);
+
+  const refreshPrerequisites = useCallback(async () => {
+    setPrereqLoading(true);
+    setPrereqError(null);
+    try {
+      const report = await invoke<PrerequisitesReport>("check_prerequisites");
+      setPrerequisites(report);
+    } catch (error) {
+      setPrereqError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setPrereqLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshPrerequisites();
+  }, [refreshPrerequisites]);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void listen<string>("pipeline-log", (event) => {
+      setPipelineLogs((prev) => [...prev, event.payload]);
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => {
+      unlisten?.();
+    };
+  }, []);
+
+  function initRoundsForPlayer(steamId: string, result: ParseResult) {
+    setSelectedSteamId(steamId);
+    setSelectedRounds(
+      result.player_rounds
+        .filter((row) => row.steam_id === steamId)
+        .map((row) => row.round_number),
+    );
+  }
+
+  async function handleParse() {
+    if (!demoPath) {
+      return;
+    }
+    setParsing(true);
+    setParseError(null);
+    setParseResult(null);
+    setSelectedSteamId(null);
+    setSelectedRounds([]);
+    setPipelineResult(null);
+    try {
+      const result = await invoke<ParseResult>("parse_demo", {
+        demoPath,
+        player: null,
+      });
+      setParseResult(result);
+      setScreen("players");
+    } catch (error) {
+      setParseError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setParsing(false);
+    }
+  }
+
+  async function handlePipeline() {
+    if (!parseResult || !selectedSteamId) {
+      return;
+    }
+    const playerName =
+      parseResult.players.find((p) => p.steam_id === selectedSteamId)?.name ?? selectedSteamId;
+
+    setPipelineRunning(true);
+    setPipelineError(null);
+    setPipelineLogs([]);
+    setLogsOpen(true);
+    try {
+      const result = await invoke<PipelineResult>("run_pipeline", {
+        request: {
+          parseResult,
+          steamId: selectedSteamId,
+          playerName,
+          rounds: selectedRounds,
+          lobbyPath,
+          introSeconds,
+          dryRun,
+          runCsdm: dryRun ? false : runCsdm,
+          roundClipPaths: null,
+          workDir: null,
+        },
+      });
+      setPipelineResult(result);
+      setPipelineLogs(result.logs);
+      setScreen("result");
+    } catch (error) {
+      setPipelineError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setPipelineRunning(false);
+    }
+  }
+
+  function restartJob() {
+    setScreen("import");
+    setParseResult(null);
+    setSelectedSteamId(null);
+    setSelectedRounds([]);
+    setPipelineResult(null);
+    setPipelineLogs([]);
+    setPipelineError(null);
+    setDryRun(true);
+    setRunCsdm(false);
+  }
+
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="brand">
+          <span className="brand-mark">POV</span>
+          <div>
+            <strong>CS2 POV Generator</strong>
+            <p>FACEIT demo → YouTube</p>
+          </div>
+        </div>
+        <nav className="steps">
+          <button
+            type="button"
+            className={screen === "setup" ? "step active" : "step"}
+            onClick={() => setScreen("setup")}
+          >
+            1. Prérequis
+          </button>
+          <button
+            type="button"
+            className={screen === "import" ? "step active" : "step"}
+            onClick={() => prerequisites?.readyForParse && setScreen("import")}
+            disabled={!prerequisites?.readyForParse}
+          >
+            2. Import
+          </button>
+          <button
+            type="button"
+            className={screen === "players" ? "step active" : "step"}
+            onClick={() => parseResult && setScreen("players")}
+            disabled={!parseResult}
+          >
+            3. Joueur
+          </button>
+          <button
+            type="button"
+            className={screen === "rounds" ? "step active" : "step"}
+            onClick={() => parseResult && selectedSteamId && setScreen("rounds")}
+            disabled={!parseResult || !selectedSteamId}
+          >
+            4. Rounds
+          </button>
+          <button
+            type="button"
+            className={screen === "render" || screen === "result" ? "step active" : "step"}
+            onClick={() => selectedRounds.length > 0 && setScreen("render")}
+            disabled={selectedRounds.length === 0}
+          >
+            5. Rendu
+          </button>
+          <button
+            type="button"
+            className={screen === "result" ? "step active" : "step"}
+            onClick={() => pipelineResult && setScreen("result")}
+            disabled={!pipelineResult}
+          >
+            6. Résultat
+          </button>
+        </nav>
+      </aside>
+
+      <main className="main">
+        {screen === "setup" && (
+          <SetupScreen
+            report={prerequisites}
+            loading={prereqLoading}
+            error={prereqError}
+            onRefresh={() => void refreshPrerequisites()}
+            onContinue={() => setScreen("import")}
+          />
+        )}
+        {screen === "import" && (
+          <ImportScreen
+            demoPath={demoPath}
+            lobbyPath={lobbyPath}
+            parsing={parsing}
+            error={parseError}
+            onDemoPath={setDemoPath}
+            onLobbyPath={setLobbyPath}
+            onParse={() => void handleParse()}
+            onBack={() => setScreen("setup")}
+          />
+        )}
+        {screen === "players" && parseResult && (
+          <PlayersScreen
+            result={parseResult}
+            selectedSteamId={selectedSteamId}
+            onSelect={(steamId) => initRoundsForPlayer(steamId, parseResult)}
+            onBack={() => setScreen("import")}
+            onContinue={() => setScreen("rounds")}
+          />
+        )}
+        {screen === "rounds" && parseResult && selectedSteamId && (
+          <RoundsScreen
+            result={parseResult}
+            steamId={selectedSteamId}
+            selectedRounds={selectedRounds}
+            onChangeRounds={setSelectedRounds}
+            onBack={() => setScreen("players")}
+            onContinue={() => setScreen("render")}
+          />
+        )}
+        {screen === "render" && (
+          <RenderScreen
+            running={pipelineRunning}
+            dryRun={dryRun}
+            runCsdm={runCsdm}
+            introSeconds={introSeconds}
+            csdmReady={Boolean(prerequisites?.items.find((i) => i.id === "csdm")?.found)}
+            csdmPath={prerequisites?.items.find((i) => i.id === "csdm")?.path ?? null}
+            logs={pipelineLogs}
+            logsOpen={logsOpen}
+            error={pipelineError}
+            onDryRunChange={(value) => {
+              setDryRun(value);
+              if (value) {
+                setRunCsdm(false);
+              }
+            }}
+            onRunCsdmChange={(value) => {
+              setRunCsdm(value);
+              if (value) {
+                setDryRun(false);
+              }
+            }}
+            onIntroSecondsChange={setIntroSeconds}
+            onLogsOpenChange={setLogsOpen}
+            onStart={() => void handlePipeline()}
+            onBack={() => setScreen("rounds")}
+          />
+        )}
+        {screen === "result" && pipelineResult && (
+          <ResultScreen
+            result={pipelineResult}
+            onBack={() => setScreen("render")}
+            onRestart={restartJob}
+          />
+        )}
+      </main>
+    </div>
+  );
+}
+
+export default App;

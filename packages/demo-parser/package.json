@@ -1,0 +1,20 @@
+{
+  "name": "@yt-cs2/demo-parser",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "CS2 demo parser sidecar: rounds, deaths, sides, SteamIDs",
+  "bin": {
+    "cs2-demo-parser": "./src/cli.js"
+  },
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "scripts": {
+    "parse": "node src/cli.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "@laihoe/demoparser2": "^0.42.0"
+  }
+}

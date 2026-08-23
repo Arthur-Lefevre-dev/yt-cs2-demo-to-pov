@@ -1,0 +1,17 @@
+{
+  "name": "@yt-cs2/chapters",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "YouTube chapter text from clip durations (ffprobe)",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "bin": {
+    "cs2-chapters": "./src/cli.js"
+  },
+  "scripts": {
+    "chapters": "node src/cli.js",
+    "test": "node --test tests/*.test.js"
+  }
+}

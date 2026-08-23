@@ -1,0 +1,17 @@
+{
+  "name": "@yt-cs2/csdm-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Generate CSDM video JSON configs and optionally invoke the CSDM CLI",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "bin": {
+    "cs2-csdm-bridge": "./src/cli.js"
+  },
+  "scripts": {
+    "build-config": "node src/cli.js",
+    "test": "node --test tests/*.test.js"
+  }
+}
