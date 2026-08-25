@@ -25,7 +25,7 @@ Options:
   --no-true-view       Disable CS2 demo predict / true-view feel
   --video-codec <name> libx264 | libx265 | hevc_nvenc | h264_nvenc | hevc_amf | h264_amf
   --skip-freeze-seconds <n> Skip freeze/buy: -1 = start at freeze_end (default), 0 = include buy, N = skip N seconds
-  --end-padding-seconds <n> Hold after death or round end (default 3)
+  --end-padding-seconds <n> Seconds after survive/round-end (default 2); death uses 1s
   --help
 `);
 }
@@ -102,22 +102,28 @@ async function main() {
     }
 
     if (values.run) {
-      let demoPath = parsed.demo_path;
-      for (const [index, item] of written.entries()) {
-        console.error(`\n--- Recording round ${item.round} ---`);
-        const code = await runCsdmVideo({
-          configFilePath: item.path,
-          demoPath,
-          // Analyze once for the demo, then skip on subsequent rounds.
-          analyze: index === 0 && !values["no-analyze"],
-          focusPlayerSteamId: String(values.player),
-          trueView: !values["no-true-view"],
-        });
-        if (code !== 0) {
-          throw new Error(
-            `csdm video failed for round ${item.round} (exit ${code}). ${explainCsdmExitCode(code)}`,
-          );
-        }
+      // Record all selected rounds in ONE CS2/HLAE session.
+      // After death (sequence endTick), CSDM jumps to the next sequence — no CS2 relaunch.
+      const multiPath = resolve(outDir, "csdm-video-run.json");
+      const multiConfig = toCsdmConfigFile({
+        ...config,
+        // Keep per-round output names with tick ranges for the assembler.
+        outputFileName: config.outputFileName ?? `pov-${(parsed.map ?? "map").replace(/[^\w-]+/g, "_")}-r{sequence}`,
+        closeGameAfterRecording: true,
+        concatenateSequences: false,
+      });
+      await writeFile(multiPath, `${JSON.stringify(multiConfig, null, 2)}\n`, "utf8");
+      console.error(`Wrote ${multiPath} (${multiConfig.sequences.length} sequences, single CS2 session)`);
+      console.error(`\n--- Recording ${multiConfig.sequences.length} round(s) (cut on death → next round) ---`);
+      const code = await runCsdmVideo({
+        configFilePath: multiPath,
+        demoPath: parsed.demo_path,
+        analyze: !values["no-analyze"],
+        focusPlayerSteamId: String(values.player),
+        trueView: !values["no-true-view"],
+      });
+      if (code !== 0) {
+        throw new Error(`csdm video failed (exit ${code}). ${explainCsdmExitCode(code)}`);
       }
     } else {
       console.error(

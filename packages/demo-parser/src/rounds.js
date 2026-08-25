@@ -84,10 +84,15 @@ export function inferTickrate(rounds) {
 
 /**
  * Pair round_start / freeze_end / round_end / round_officially_ended after match start.
+ * Drops knife rounds (FACEIT side pick) when death weapons are all knives.
+ *
+ * @param {object[]} events
+ * @param {{ matchStartTick?: number, minGap?: number, deaths?: object[] }} [options]
  */
 export function buildOfficialRounds(events, options = {}) {
   const minGap = options.minGap ?? 64;
   const matchStartTick = options.matchStartTick ?? inferMatchStartTick(events);
+  const deaths = options.deaths ?? events.filter((event) => event.event_name === "player_death");
   const allStarts = dedupeAscendingTicks(
     events.filter((event) => event.event_name === "round_start").map(eventTick),
     minGap,
@@ -116,6 +121,7 @@ export function buildOfficialRounds(events, options = {}) {
     .filter((event) => event.event_name === "round_end")
     .filter((event) => eventTick(event) >= windowStart);
 
+  /** @type {object[]} */
   const rounds = [];
   for (let index = 0; index < starts.length; index += 1) {
     const startTick = starts[index];
@@ -125,12 +131,16 @@ export function buildOfficialRounds(events, options = {}) {
     if (endTick === undefined) {
       continue;
     }
+    // Skip FACEIT knife round (side pick) even if it somehow starts after begin_new_match.
+    if (isKnifeRound(deaths, startTick, endTick)) {
+      continue;
+    }
     const officialEndTick =
       officialEnds.find((tick) => tick >= endTick && tick < (starts[index + 1] ?? Number.POSITIVE_INFINITY) + minGap) ??
       endTick;
     const endEvent = endEvents.find((event) => eventTick(event) === endTick);
     rounds.push({
-      round_number: index + 1,
+      round_number: rounds.length + 1,
       start_tick: startTick,
       freeze_end_tick: freezeEndTick,
       end_tick: endTick,
@@ -140,6 +150,36 @@ export function buildOfficialRounds(events, options = {}) {
     });
   }
   return rounds;
+}
+
+/**
+ * @param {string | null | undefined} weapon
+ */
+export function isKnifeWeapon(weapon) {
+  if (!weapon) {
+    return false;
+  }
+  const raw = String(weapon).toLowerCase().replace(/^weapon_/, "");
+  return raw === "knife" || raw.startsWith("knife_") || raw === "bayonet";
+}
+
+/**
+ * True when every death in the window is a knife kill (FACEIT knife round).
+ * Empty window → not considered knife (avoid dropping odd empty rounds).
+ *
+ * @param {object[]} deaths
+ * @param {number} startTick
+ * @param {number} endTick
+ */
+export function isKnifeRound(deaths, startTick, endTick) {
+  const inRound = (deaths || []).filter((death) => {
+    const tick = eventTick(death);
+    return Number.isFinite(tick) && tick >= startTick && tick <= endTick;
+  });
+  if (inRound.length === 0) {
+    return false;
+  }
+  return inRound.every((death) => isKnifeWeapon(death.weapon));
 }
 
 export function winnerFromRoundEnd(event) {

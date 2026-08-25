@@ -1,8 +1,9 @@
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { ensureSteamRunning } from "./steam.js";
+import { ensureCsdmPovSettings, startDemoActionsPatcher } from "./hlae-prep.js";
 
 /**
  * Quote one argument for logging / cmd.exe fallback.
@@ -118,31 +119,11 @@ export function explainCsdmExitCode(code) {
 }
 
 /**
- * Ensure CSDM app settings enable TrueView (CLI config alone can still inherit false).
+ * Ensure CSDM / HLAE are ready for POV (TrueView + hide demoui).
  * @param {(line: string) => void} onLog
  */
-function ensureCsdmTrueViewSetting(onLog) {
-  const settingsPath = join(homedir(), ".csdm", "settings.json");
-  if (!existsSync(settingsPath)) {
-    return;
-  }
-  try {
-    const raw = readFileSync(settingsPath, "utf8");
-    const settings = JSON.parse(raw);
-    if (settings?.video?.trueView === true) {
-      return;
-    }
-    if (!settings.video || typeof settings.video !== "object") {
-      settings.video = {};
-    }
-    settings.video.trueView = true;
-    writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
-    onLog(`Updated ${settingsPath}: video.trueView = true\n`);
-  } catch (error) {
-    onLog(
-      `WARNING: could not enable CSDM trueView setting (${error instanceof Error ? error.message : error})\n`,
-    );
-  }
+function preparePovRecording(onLog) {
+  ensureCsdmPovSettings(onLog);
 }
 
 /**
@@ -161,6 +142,8 @@ export function runCsdmVideo({
   onLog = (line) => process.stderr.write(line),
 }) {
   return new Promise(async (resolve, reject) => {
+    /** @type {{ stop: () => void } | null} */
+    let patcher = null;
     try {
       const launch = csdmPath
         ? resolveFromCmdWrapper(csdmPath)
@@ -184,16 +167,27 @@ export function runCsdmVideo({
       // CSDM refuses to start CS2 when Steam is not running.
       await ensureSteamRunning({ onLog });
       if (trueView) {
-        ensureCsdmTrueViewSetting(onLog);
+        preparePovRecording(onLog);
       }
 
       const videoArgs = ["video", "--config-file", configFilePath, ...extraArgs];
       if (focusPlayerSteamId) {
         videoArgs.push("--focus-player", String(focusPlayerSteamId));
       }
-      // Explicit CLI flag — CSDM settings.json often has trueView:false by default.
+      // Explicit CLI flags — CSDM settings often default to death-notices-only / no TrueView.
       if (trueView && !extraArgs.includes("--true-view") && !extraArgs.includes("--no-true-view")) {
         videoArgs.push("--true-view");
+      }
+      if (!extraArgs.includes("--no-show-only-death-notices") && !extraArgs.includes("--show-only-death-notices")) {
+        videoArgs.push("--no-show-only-death-notices");
+      }
+      if (!extraArgs.includes("--no-show-x-ray") && !extraArgs.includes("--show-x-ray")) {
+        videoArgs.push("--no-show-x-ray");
+      }
+
+      // Patch demo.dem.json as soon as CSDM writes it (TrueView + hide demoui before CS2 reads it).
+      if (demoPath) {
+        patcher = startDemoActionsPatcher(String(demoPath), onLog);
       }
 
       const code = await spawnLogged(launch, videoArgs, onLog);
@@ -203,6 +197,8 @@ export function runCsdmVideo({
       resolve(code);
     } catch (error) {
       reject(error);
+    } finally {
+      patcher?.stop();
     }
   });
 }

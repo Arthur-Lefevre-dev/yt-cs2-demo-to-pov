@@ -8,6 +8,8 @@ export {
   inferMatchStartTick,
   inferTickrate,
   firstOfficialRoundStart,
+  isKnifeRound,
+  isKnifeWeapon,
   killsInTickWindow,
   normalizeSteamId,
   sideFromTeamNum,

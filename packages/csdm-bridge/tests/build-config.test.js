@@ -75,7 +75,8 @@ describe("buildCsdmVideoConfig", () => {
     const sequence = config.sequences[0];
     // Default skipFreezeSeconds=-1 → start at freeze_end (1600).
     assert.equal(sequence.startTick, 1600);
-    assert.equal(sequence.endTick, 2692);
+    // Death at 2500 + 1s padding @ 64 tick = 2564.
+    assert.equal(sequence.endTick, 2564);
     assert.equal(sequence.playerVoicesEnabled, true);
     assert.ok(sequence.playerCameras.length >= 1);
     assert.equal(sequence.playerCameras[0].playerSteamId, "111");
@@ -132,7 +133,7 @@ describe("buildCsdmVideoConfig", () => {
     assert.equal(voices["111"], true);
     assert.equal(voices["333"], true);
     assert.equal(voices["222"], false);
-    assert.equal(config.sequences[0].endTick, 12192);
+    assert.equal(config.sequences[0].endTick, 12128);
   });
 
   it("strips _meta for the on-disk CSDM file", () => {
@@ -144,6 +145,17 @@ describe("buildCsdmVideoConfig", () => {
     assert.ok(config.sequences[0]._meta);
     const clean = toCsdmConfigFile(config);
     assert.equal(clean.sequences[0]._meta, undefined);
+  });
+
+  it("cuts the clip shortly after death instead of watching the rest of the round", () => {
+    const config = buildCsdmVideoConfig(parsed, {
+      steamId: "111",
+      outputFolderPath: "C:\\out",
+      rounds: [1],
+    });
+    // Round ends at 3000 but player dies at 2500 → end near death, not round end.
+    assert.ok(config.sequences[0].endTick < 2800);
+    assert.ok(config.sequences[0].endTick >= 2500);
   });
 
   it("splits into one config per round", () => {

@@ -209,19 +209,18 @@ stricts sur le camp courant : ils sont figés au camp de départ.
 
 ## HUD POV (comme en jeu) + sans UI démo
 
-Dans `sequences[].cfg` (et via `mirv_cmd` répétés pendant tout le clip) :
+Au lancement CSDM/HLAE le bridge :
+1. Active un dossier HLAE `~/.csdm/pov-hlae-cfg` avec `autoexec.cfg` (`demo_ui_mode 0`, `cl_demo_predict 2`) **avant** le chargement démo.
+2. Patche le fichier `demo.dem.json` dès que CSDM l’écrit (TrueView + masquage demoui).
+3. Passe `--true-view` / `--no-show-only-death-notices` / `--no-show-x-ray`.
 
-- **Début clip** : `startTick` = `freeze_end` par défaut (passe le buy / « warmup » du round ; jamais avant `match_start_tick`).
-- **TrueView** : `trueView: true` + `cl_demo_predict 2` (force) + flag CLI `--true-view`
-  (les settings CSDM ont souvent `trueView: false` par défaut).
-- **HUD joueur complet** : `cl_drawhud 1`, `cl_draw_only_deathnotices 0`,
-  `r_drawviewmodel 1`, `crosshair 1`, `hud_showtargetid 1` + JSON `showOnlyDeathNotices: false`
-  → radar, HP, argent, munitions, killfeed, crosshair (comme en jeu).
-- **Caméra** : `spec_mode 1` + `spec_player <slot>` re-appliqué pendant le clip
-  (`mirv_cmd`) pour rester sur le bon joueur.
-- **Masquer la barre démo CS2** : `demo_ui_mode 0` (pas le HUD jeu). TrueView reste actif via console.
+Dans `sequences[].cfg` :
+- **Début clip** : `startTick` = `freeze_end` (passe tout le buy ; warmup + knife exclus du parse).
+- **TrueView** : `cl_demo_predict 2` (force).
+- **HUD joueur** : radar / killfeed / crosshair (`showOnlyDeathNotices: false`).
+- **Sans barre démo** : `demo_ui_mode 0`.
 
-Ne pas utiliser `cl_draw_only_deathnotices 1` pour du contenu YouTube POV classique.
+**Important** : re-parser la démo puis régénérer les configs avant un nouvel enregistrement.
 
 ## Caméra POV
 

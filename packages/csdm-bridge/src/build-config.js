@@ -28,27 +28,32 @@ export function generatePlayerVoicesValues(userIds) {
 }
 
 /**
- * Start recording after skipping early freeze / buy time.
- * Default (skipSeconds < 0): start at freeze_end — skip round warmup/buy entirely.
+ * Start recording after skipping freeze / buy time.
+ * Default: start at freeze_end (skip entire buy). Fallback: round_start + 10s when freeze is missing.
  *
  * @param {{ round_start_tick: number, freeze_end_tick?: number }} row
  * @param {number} tickrate
- * @param {number} [skipSeconds=-1]
+ * @param {number} [skipSeconds=-1] -1 = freeze_end; 0 = round_start; N = min(start+N, freeze_end)
  */
 export function clipStartTick(row, tickrate, skipSeconds = -1) {
   const roundStart = Number(row.round_start_tick);
-  const freezeEnd = Math.max(roundStart, Number(row.freeze_end_tick ?? roundStart));
+  const freezeEndRaw = Number(row.freeze_end_tick ?? roundStart);
+  const freezeEnd = Math.max(roundStart, freezeEndRaw);
+  const rate = Math.max(1, Math.round(Number(tickrate) || 64));
   const skip = Number(skipSeconds);
 
-  // Default: skip freeze/buy ("warmup") — begin when the round goes live.
+  // Default: skip all buy / freeze — begin when the round goes live.
   if (!Number.isFinite(skip) || skip < 0) {
+    // If freeze_end equals start (missing event), still skip ~10s of buy.
+    if (freezeEnd <= roundStart + 1) {
+      return roundStart + Math.round(10 * rate);
+    }
     return freezeEnd;
   }
   if (skip === 0) {
     return roundStart;
   }
 
-  const rate = Math.max(1, Math.round(Number(tickrate) || 64));
   const skipTicks = Math.round(skip * rate);
   return Math.min(roundStart + skipTicks, freezeEnd);
 }
@@ -180,12 +185,12 @@ export function buildCsdmVideoConfig(parsed, options) {
   // Default -1: start at freeze_end (skip buy / round warmup).
   const skipFreezeSeconds =
     options.skipFreezeSeconds === undefined ? -1 : Number(options.skipFreezeSeconds);
-  // Hold a few seconds after death or round end (default 3s).
-  const endPaddingSeconds = Number(options.endPaddingSeconds ?? 3);
-  const endPadding =
-    options.endPaddingTicks != null
-      ? Number(options.endPaddingTicks)
-      : Math.round(Math.max(0, endPaddingSeconds) * tickrate);
+  // After death: short hold then cut to next round (default 1s).
+  // After surviving to round end: slightly longer hold (default 2s).
+  const deathPaddingSeconds = Number(options.deathPaddingSeconds ?? 1);
+  const survivePaddingSeconds = Number(
+    options.endPaddingSeconds ?? options.survivePaddingSeconds ?? 2,
+  );
 
   const width = options.width ?? 3840;
   const height = options.height ?? 2160;
@@ -212,10 +217,20 @@ export function buildCsdmVideoConfig(parsed, options) {
     if (matchStartTick > 0) {
       startTick = Math.max(startTick, matchStartTick);
     }
+
+    // Cut as soon as the POV player dies (then short padding) — do not watch the rest of the round.
+    const deathTick =
+      row.player_death_tick != null && Number.isFinite(Number(row.player_death_tick))
+        ? Number(row.player_death_tick)
+        : null;
     const roundEnd = Number(row.round_end_tick ?? row.clip_end_tick);
-    const paddedEnd = Number(row.clip_end_tick) + endPadding;
-    const maxEnd = roundEnd + endPadding;
-    const endTick = Math.max(startTick + 1, Math.min(paddedEnd, maxEnd));
+    const naturalEnd = deathTick != null ? deathTick : roundEnd;
+    const paddingSeconds = deathTick != null ? deathPaddingSeconds : survivePaddingSeconds;
+    const paddingTicks =
+      options.endPaddingTicks != null
+        ? Number(options.endPaddingTicks)
+        : Math.round(Math.max(0, paddingSeconds) * tickrate);
+    const endTick = Math.max(startTick + 1, naturalEnd + paddingTicks);
     // Spec after freezetime when possible — after demo_gototick setup (CSDM issue #1238).
     const cameraTick = Math.max(
       startTick + 1,

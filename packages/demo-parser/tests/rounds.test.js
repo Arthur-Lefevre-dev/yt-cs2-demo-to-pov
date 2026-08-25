@@ -77,15 +77,23 @@ describe("buildOfficialRounds", () => {
     assert.equal(rounds[1].start_tick, 12064);
   });
 
-  it("drops a trailing unfinished round with no round_end", () => {
+  it("drops FACEIT knife rounds (all-knife deaths)", () => {
     const events = [
+      { event_name: "begin_new_match", tick: 100 },
       { event_name: "round_start", tick: 100 },
-      { event_name: "round_end", tick: 500, winner: 3 },
-      { event_name: "round_start", tick: 600 },
+      { event_name: "round_freeze_end", tick: 200 },
+      { event_name: "player_death", tick: 300, weapon: "knife_karambit" },
+      { event_name: "player_death", tick: 350, weapon: "knife_butterfly" },
+      { event_name: "round_end", tick: 400, winner: 2 },
+      { event_name: "round_start", tick: 500 },
+      { event_name: "round_freeze_end", tick: 1100 },
+      { event_name: "player_death", tick: 1500, weapon: "usp_silencer" },
+      { event_name: "round_end", tick: 2000, winner: 3 },
     ];
-    const rounds = buildOfficialRounds(events, { matchStartTick: 0 });
+    const rounds = buildOfficialRounds(events);
     assert.equal(rounds.length, 1);
-    assert.equal(rounds[0].end_tick, 500);
+    assert.equal(rounds[0].round_number, 1);
+    assert.equal(rounds[0].start_tick, 500);
   });
 });
 

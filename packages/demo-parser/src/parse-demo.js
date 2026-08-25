@@ -146,7 +146,7 @@ export function parseDemo(demoPath, options = {}) {
   const deaths = events.filter((event) => event.event_name === "player_death");
   const matchStartTick = inferMatchStartTick(events);
   const officialDeaths = deaths.filter((event) => Number(event.tick) >= matchStartTick);
-  const rounds = buildOfficialRounds(events, { matchStartTick });
+  const rounds = buildOfficialRounds(events, { matchStartTick, deaths });
   const tickrate = Number(header.tickrate) > 0 ? Number(header.tickrate) : inferTickrate(rounds);
 
   const sampleTicks = [...new Set(rounds.map((round) => round.freeze_end_tick))];
@@ -230,7 +230,8 @@ export function parseDemo(demoPath, options = {}) {
       const clipEndTick = deathTick ?? round.end_tick;
       // Skip freeze/buy — clip starts when the round goes live (matches csdm-bridge default).
       const clipStartTick = Math.max(round.start_tick, round.freeze_end_tick);
-      const endPaddingTicks = Math.round(3 * tickrate);
+      // Match csdm-bridge: ~1s hold after death, ~2s after survive-to-round-end.
+      const endPaddingTicks = Math.round((deathTick != null ? 1 : 2) * tickrate);
       const estimatedSeconds =
         tickrate > 0
           ? Number(((clipEndTick + endPaddingTicks - clipStartTick) / tickrate).toFixed(2))
