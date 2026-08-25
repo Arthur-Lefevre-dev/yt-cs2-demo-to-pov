@@ -1,7 +1,7 @@
 {
   "name": "yt-cs2-demo-to-pov",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Desktop app that turns a FACEIT CS2 demo into a YouTube-style POV video",
   "workspaces": [
     "apps/gui",

@@ -166,8 +166,8 @@ export type FaceitMatchItem = {
   assists: number;
   kd: number;
   rounds?: number;
+  /** Match Rating (1.xx), same column as on FACEIT — not Elo. */
   rating: number;
-  faceit_elo?: number | null;
   faceit_rating: number;
   map: string | null;
   result: string | null;
@@ -181,4 +181,5 @@ export type FaceitBestMatchesResult = {
   total: number;
   totalPages: number;
   items: FaceitMatchItem[];
+  errors?: string[];
 };

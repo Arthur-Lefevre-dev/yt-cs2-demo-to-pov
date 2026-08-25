@@ -5,7 +5,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { chromium } from "playwright";
-import { faceitMatchRoomUrl, getMatch, normalizeFaceitUrl } from "./client.js";
+import { faceitMatchRoomUrl, getMatch, normalizeFaceitUrl, sanitizeFaceitMatchId } from "./client.js";
 
 const W = 1920;
 const H = 1080;
@@ -80,12 +80,15 @@ async function dismissOverlays(page) {
  * @param {{ url?: string | null, lang?: string }} [opts]
  */
 export async function captureFaceitRoomScreenshot(matchId, outPath, opts = {}) {
-  const id = String(matchId || "").trim();
+  const id = sanitizeFaceitMatchId(matchId);
   if (!id) {
     throw new Error("matchId is required");
   }
+  // Always build the canonical room URL — never use "...-lobby" filenames as the page URL.
+  const canonical = faceitMatchRoomUrl(id, opts.lang ?? "en");
+  const fromOpt = normalizeFaceitUrl(opts.url, opts.lang ?? "en");
   const url =
-    normalizeFaceitUrl(opts.url) || faceitMatchRoomUrl(id, opts.lang ?? "en");
+    fromOpt && sanitizeFaceitMatchId(fromOpt) === id ? fromOpt : canonical;
   if (!url) {
     throw new Error("Cannot build FACEIT room URL");
   }
@@ -183,13 +186,18 @@ export async function renderLobbyScreenshot(match, outPath) {
  * @param {string} outPath
  */
 export async function generateFaceitLobbyScreenshot(apiKey, matchId, outPath) {
-  let faceitUrl = null;
+  const id = sanitizeFaceitMatchId(matchId);
+  if (!id) {
+    throw new Error("matchId is required");
+  }
+  // Prefer canonical room URL; optionally confirm match exists via API.
   try {
-    const match = await getMatch(apiKey, matchId);
-    faceitUrl = normalizeFaceitUrl(match?.faceit_url) || null;
+    await getMatch(apiKey, id);
   } catch {
     // Page capture does not require API — continue with constructed URL.
   }
-  const result = await captureFaceitRoomScreenshot(matchId, outPath, { url: faceitUrl });
+  const result = await captureFaceitRoomScreenshot(id, outPath, {
+    url: faceitMatchRoomUrl(id),
+  });
   return { path: result.path, url: result.url, matchId: result.matchId };
 }

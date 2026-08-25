@@ -182,6 +182,17 @@ pub fn run_node_cli(cli_relative: &str, args: &[OsString]) -> Result<NodeOutput,
     run_node_cli_streaming(cli_relative, args, |_| {})
 }
 
+/// Run blocking work off the UI thread so the webview stays responsive.
+pub async fn run_blocking<T, F>(work: F) -> Result<T, String>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T, String> + Send + 'static,
+{
+    tauri::async_runtime::spawn_blocking(work)
+        .await
+        .map_err(|err| format!("Background task failed: {err}"))?
+}
+
 /// Spawn a Node CLI and stream each output line to `on_line` as it arrives.
 pub fn run_node_cli_streaming(
     cli_relative: &str,

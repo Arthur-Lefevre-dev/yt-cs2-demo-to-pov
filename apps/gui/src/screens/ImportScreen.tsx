@@ -105,7 +105,7 @@ export function ImportScreen({
           Retour
         </button>
         {onOpenFaceit && (
-          <button type="button" onClick={onOpenFaceit} disabled={parsing}>
+          <button type="button" className="btn-faceit" onClick={onOpenFaceit} disabled={parsing}>
             Joueurs FACEIT…
           </button>
         )}

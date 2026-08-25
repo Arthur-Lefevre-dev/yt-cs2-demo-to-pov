@@ -6,7 +6,17 @@
    - File `fixtures/faceit-api-key.txt` (dev) / `Documents\CS2-POV-Generator\faceit-api-key.txt` (release)
 3. Tracked players store: `fixtures/tracked-players.json` (dev) or `Documents\CS2-POV-Generator\tracked-players.json`
 
-In the app: sidebar **FACEIT** → add SteamID64 + photo + team logo → **Charger** best matches (last 15 per player, sorted by K/D).
+In the app: sidebar **FACEIT** → add SteamID64 + photo + team logo → **Charger** best matches (last 15 per player, sorted by match Rating).
+
+### Demo download
+
+FACEIT Data API returns private `demos.faceit.com` resource URLs (they do **not** resolve in public DNS → `ENOTFOUND`).
+
+The app resolves a real download link by:
+1. FACEIT **Downloads API** signed URL (if your API key has Downloads scope), else
+2. Opening the match room in Chromium and capturing the CDN demo URL.
+
+If both fail, download the `.dem` manually from faceit.com and use Import.
 
 ### Lobby screenshot
 

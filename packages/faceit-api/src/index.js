@@ -1,15 +1,26 @@
 export {
+  downloadFaceitDemo,
+  isDirectDemoDownloadUrl,
+  resolveDemoDownloadUrl,
+  resolveDemoUrlViaBrowser,
+  signDemoUrlViaDownloadsApi,
+} from "./demo-download.js";
+export {
   computeMatchRating,
   extractDemoUrls,
   extractFaceitElo,
+  extractGameStatsRow,
   extractPlayerKd,
   faceitFetch,
   faceitMatchRoomUrl,
   getMatch,
   getMatchStats,
+  getPlayerGameStats,
   getPlayerHistory,
   lookupPlayer,
   normalizeFaceitUrl,
+  parseMatchRating,
+  sanitizeFaceitMatchId,
 } from "./client.js";
 export { listBestRecentMatches } from "./matches.js";
 export {

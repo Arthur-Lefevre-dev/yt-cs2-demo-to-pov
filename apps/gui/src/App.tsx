@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { BusyOverlay, yieldToUi } from "./components/BusyOverlay";
 import { SetupScreen } from "./screens/SetupScreen";
 import { ImportScreen } from "./screens/ImportScreen";
 import { PlayersScreen } from "./screens/PlayersScreen";
@@ -52,6 +53,7 @@ function App() {
   const refreshPrerequisites = useCallback(async () => {
     setPrereqLoading(true);
     setPrereqError(null);
+    await yieldToUi();
     try {
       const report = await invoke<PrerequisitesReport>("check_prerequisites");
       setPrerequisites(report);
@@ -103,6 +105,7 @@ function App() {
     setSelectedSteamId(null);
     setSelectedRounds([]);
     setPipelineResult(null);
+    await yieldToUi();
     try {
       const result = await invoke<ParseResult>("parse_demo", {
         demoPath,
@@ -138,6 +141,7 @@ function App() {
     setPipelineError(null);
     setPipelineLogs([]);
     setLogsOpen(true);
+    await yieldToUi();
     try {
       const result = await invoke<PipelineResult>("run_pipeline", {
         request: {
@@ -210,7 +214,13 @@ function App() {
           </button>
           <button
             type="button"
-            className={screen === "faceit" ? "step active" : "step"}
+            className={[
+              "step",
+              "btn-faceit-nav",
+              screen === "faceit" ? "active" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
             onClick={() => prerequisites?.readyForParse && setScreen("faceit")}
             disabled={!prerequisites?.readyForParse}
           >
@@ -260,6 +270,18 @@ function App() {
       </aside>
 
       <main className="main">
+        <BusyOverlay
+          active={prereqLoading || parsing || pipelineRunning}
+          label={
+            pipelineRunning
+              ? "Pipeline en cours…"
+              : parsing
+                ? "Parsing de la démo…"
+                : prereqLoading
+                  ? "Vérification des prérequis…"
+                  : null
+          }
+        />
         {screen === "setup" && (
           <SetupScreen
             report={prerequisites}

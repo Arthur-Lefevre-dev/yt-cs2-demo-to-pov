@@ -3,32 +3,35 @@
     {
       "id": "88b6ea40-2201-4e51-a29a-7811f9624b3b",
       "steam_id": "76561198386265483",
-      "nickname": "Donk",
+      "nickname": "donk666",
       "display_name": "Donk",
       "photo_path": "C:\\Users\\kingd\\Downloads\\yovIrLe65oyvKxFkIoHLCw.webp",
       "team_logo_path": "C:\\Users\\kingd\\Downloads\\syrtYYKR7sBRw3ZHy1YFX7.webp",
       "created_at": "2026-08-25T14:14:48.555Z",
-      "updated_at": "2026-08-25T14:14:48.555Z"
+      "updated_at": "2026-08-25T14:48:52.426Z",
+      "faceit_player_id": "e5e8e2a6-d716-4493-b949-e16965f41654"
     },
     {
       "id": "58b64ed3-8392-4f3a-8f89-42323ae86093",
       "steam_id": "76561198113666193",
-      "nickname": "Zywoo",
+      "nickname": "ZywOo",
       "display_name": "Zywoo",
       "photo_path": "C:\\Users\\kingd\\Downloads\\blnoWFtH8GUJZjhr8H0P4u.webp",
       "team_logo_path": "C:\\Users\\kingd\\Downloads\\yeXBldn9w8LZCgdElAenPs.webp",
       "created_at": "2026-08-25T14:19:11.344Z",
-      "updated_at": "2026-08-25T14:19:11.344Z"
+      "updated_at": "2026-08-25T14:48:53.672Z",
+      "faceit_player_id": "3b536dda-e3dd-40cd-baed-7e66ab050c8f"
     },
     {
       "id": "a0f9efa6-1299-4208-b3ed-3df6372aad42",
       "steam_id": "76561198041683378",
-      "nickname": "Niko",
+      "nickname": "niko",
       "display_name": "Niko",
       "photo_path": "C:\\Users\\kingd\\Downloads\\ZPB6zop8FumkqqbHl8BGos.webp",
       "team_logo_path": "C:\\Users\\kingd\\Downloads\\4eJSkDQINNM6Tbs4WvLzkN.webp",
       "created_at": "2026-08-25T14:21:06.415Z",
-      "updated_at": "2026-08-25T14:21:06.415Z"
+      "updated_at": "2026-08-25T14:48:54.880Z",
+      "faceit_player_id": "19606e0c-137b-4885-a904-744fa12d25f6"
     },
     {
       "id": "3c1b1c05-be19-470f-8723-08afca308e1b",
@@ -38,7 +41,96 @@
       "photo_path": "C:\\Users\\kingd\\Downloads\\dziugss.webp",
       "team_logo_path": "C:\\Users\\kingd\\Downloads\\Os71GAOy8KDuQFc0M8HE6O.webp",
       "created_at": "2026-08-25T14:25:48.437Z",
-      "updated_at": "2026-08-25T14:25:48.437Z"
+      "updated_at": "2026-08-25T14:48:55.895Z",
+      "faceit_player_id": "dc49b288-2a75-485a-91b1-ee81ce2f25de"
+    },
+    {
+      "id": "68330483-a614-4db1-babf-ef7d2a2d7cc0",
+      "steam_id": "76561198875633179",
+      "nickname": "dem0n",
+      "display_name": "dem0n",
+      "photo_path": "C:\\Users\\kingd\\Downloads\\dem0n.webp",
+      "team_logo_path": "C:\\Users\\kingd\\Downloads\\Os71GAOy8KDuQFc0M8HE6O.webp",
+      "created_at": "2026-08-25T14:30:11.102Z",
+      "updated_at": "2026-08-25T14:48:56.936Z",
+      "faceit_player_id": "d08c6b94-2f01-46c0-b430-8d885ff6026d"
+    },
+    {
+      "id": "7f8fd5f1-d70f-4b6b-8b0f-f4a2be3688ca",
+      "steam_id": "76561198305036904",
+      "nickname": "nipl",
+      "display_name": "NPL",
+      "photo_path": "C:\\Users\\kingd\\Downloads\\npl.webp",
+      "team_logo_path": "C:\\Users\\kingd\\Downloads\\O6nRWTCjUzBAR4pcOcrpSG.webp",
+      "created_at": "2026-08-25T14:33:56.038Z",
+      "updated_at": "2026-08-25T14:48:58.168Z",
+      "faceit_player_id": "e5b855bd-3dbc-4928-a216-241d615b431b"
+    },
+    {
+      "id": "6dc097c3-c5d1-428a-b726-9d1f14d1f947",
+      "steam_id": "76561198074762801",
+      "nickname": "m0NESY",
+      "display_name": "m0NESY",
+      "photo_path": "C:\\Users\\kingd\\Downloads\\Xn6RSL5KIFiD6hXiBseskM.webp",
+      "team_logo_path": "C:\\Users\\kingd\\Downloads\\4eJSkDQINNM6Tbs4WvLzkN.webp",
+      "created_at": "2026-08-25T14:35:01.036Z",
+      "updated_at": "2026-08-25T14:48:59.199Z",
+      "faceit_player_id": "93306681-bce6-4369-8c41-e0bdba2597ed"
+    },
+    {
+      "id": "9ca5c4ea-c523-4678-9b1f-845b99582581",
+      "steam_id": "76561198200982290",
+      "nickname": "molodoy",
+      "display_name": "molodoy",
+      "photo_path": "C:\\Users\\kingd\\Downloads\\oPoWLYFq87cIs2cYDo8id7.webp",
+      "team_logo_path": "C:\\Users\\kingd\\Downloads\\furia.svg",
+      "created_at": "2026-08-25T14:36:05.965Z",
+      "updated_at": "2026-08-25T14:49:00.180Z",
+      "faceit_player_id": "38c95679-29cb-4f0c-983e-1ffb919bdc0a"
+    },
+    {
+      "id": "97b41c67-bfea-4907-b4ec-cbd2e72ebaf0",
+      "steam_id": "76561199032006224",
+      "nickname": "kyousuke",
+      "display_name": "kyousuke",
+      "photo_path": "C:\\Users\\kingd\\Downloads\\hkLE4eILVbTT3QigB1gFqp.webp",
+      "team_logo_path": "C:\\Users\\kingd\\Downloads\\4eJSkDQINNM6Tbs4WvLzkN.webp",
+      "created_at": "2026-08-25T14:37:14.278Z",
+      "updated_at": "2026-08-25T14:49:01.173Z",
+      "faceit_player_id": "7dc10d1a-748b-4d4f-8ab0-ef31e181a722"
+    },
+    {
+      "id": "54696957-1e43-45a5-bbac-68fce96ab0f2",
+      "steam_id": "76561198058500492",
+      "nickname": "KSCERATO",
+      "display_name": "KSCERATO",
+      "photo_path": "C:\\Users\\kingd\\Downloads\\76561198058500492.webp",
+      "team_logo_path": "C:\\Users\\kingd\\Downloads\\furia.svg",
+      "created_at": "2026-08-25T14:38:10.236Z",
+      "updated_at": "2026-08-25T14:49:02.208Z",
+      "faceit_player_id": "c365e0fe-ae29-41d7-b331-ed8904e32d2b"
+    },
+    {
+      "id": "a73b2d28-ab86-4217-b7fd-cde46009c0cb",
+      "steam_id": "7656119806333640",
+      "nickname": "Spinx",
+      "display_name": "Spinx",
+      "photo_path": "C:\\Users\\kingd\\Downloads\\7656119806333640.webp",
+      "team_logo_path": "C:\\Users\\kingd\\Downloads\\IejtXpquZnE8KqYPB1LNKw.svg",
+      "created_at": "2026-08-25T14:39:21.176Z",
+      "updated_at": "2026-08-25T14:49:03.270Z",
+      "faceit_player_id": "a6e8dc26-039b-4c8e-96d6-94dcd6b273e9"
+    },
+    {
+      "id": "dfc47298-76bd-4827-9a27-e129ab8982b1",
+      "steam_id": "76561198034202275",
+      "nickname": "s1mplecsgod",
+      "display_name": "s1mple",
+      "photo_path": "C:\\Users\\kingd\\Downloads\\mJ4aRpdUSXtuzgHSp9ytjh.webp",
+      "team_logo_path": "C:\\Users\\kingd\\Downloads\\Hwf-Y5nN-3qSvd0FZXOCh5.webp",
+      "created_at": "2026-08-25T14:41:18.832Z",
+      "updated_at": "2026-08-25T14:49:04.498Z",
+      "faceit_player_id": "ac71ba3c-d3d4-45e7-8be2-26aa3986867d"
     }
   ]
 }

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
+import { BusyOverlay, yieldToUi } from "../components/BusyOverlay";
 import type { ScreenshotProposal, ThumbnailResult } from "../types";
 
 type Props = {
@@ -137,6 +138,7 @@ export function ThumbnailScreen({
     }
     setProposing(true);
     setError(null);
+    await yieldToUi();
     try {
       const proposed = await invoke<{
         outDir: string;
@@ -183,6 +185,7 @@ export function ThumbnailScreen({
     }
     setRunning(true);
     setError(null);
+    await yieldToUi();
     try {
       const backgroundPaths = useScreenshots
         ? selectedBgIds
@@ -236,6 +239,10 @@ export function ThumbnailScreen({
 
   return (
     <section className="screen">
+      <BusyOverlay
+        active={busy}
+        label={proposing ? "Extraction des screenshots…" : running ? "Génération des miniatures…" : null}
+      />
       <header className="screen-header">
         <p className="eyebrow">Étape 7 / 7</p>
         <h1>Miniatures YouTube</h1>

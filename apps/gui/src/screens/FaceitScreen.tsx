@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
+import { BusyOverlay, yieldToUi } from "../components/BusyOverlay";
 import type {
   FaceitBestMatchesResult,
   FaceitSettings,
@@ -25,12 +26,18 @@ export function FaceitScreen({ onBack, onUseDemo, onUseLobby }: Props) {
   const [matches, setMatches] = useState<FaceitBestMatchesResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [matchesLoading, setMatchesLoading] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
+  const busy = loading || matchesLoading || actionBusy;
+
   const refresh = useCallback(async () => {
     setLoading(true);
+    setBusyLabel("Chargement des joueurs trackés…");
     setError(null);
+    await yieldToUi();
     try {
       const [faceitSettings, listed] = await Promise.all([
         invoke<FaceitSettings>("get_faceit_settings"),
@@ -42,6 +49,7 @@ export function FaceitScreen({ onBack, onUseDemo, onUseLobby }: Props) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
+      setBusyLabel(null);
     }
   }, []);
 
@@ -51,6 +59,9 @@ export function FaceitScreen({ onBack, onUseDemo, onUseLobby }: Props) {
 
   async function saveApiKey() {
     setError(null);
+    setActionBusy(true);
+    setBusyLabel("Enregistrement de la clé API…");
+    await yieldToUi();
     try {
       const next = await invoke<FaceitSettings>("save_faceit_api_key", {
         apiKey: apiKeyInput.trim(),
@@ -60,6 +71,9 @@ export function FaceitScreen({ onBack, onUseDemo, onUseLobby }: Props) {
       setStatus("Clé FACEIT enregistrée.");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setActionBusy(false);
+      setBusyLabel(null);
     }
   }
 
@@ -89,6 +103,9 @@ export function FaceitScreen({ onBack, onUseDemo, onUseLobby }: Props) {
       return;
     }
     setError(null);
+    setActionBusy(true);
+    setBusyLabel("Enregistrement du joueur…");
+    await yieldToUi();
     try {
       await invoke("upsert_tracked_player", {
         request: {
@@ -109,22 +126,33 @@ export function FaceitScreen({ onBack, onUseDemo, onUseLobby }: Props) {
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setActionBusy(false);
+      setBusyLabel(null);
     }
   }
 
   async function removePlayer(id: string) {
     setError(null);
+    setActionBusy(true);
+    setBusyLabel("Suppression du joueur…");
+    await yieldToUi();
     try {
       await invoke("remove_tracked_player", { id });
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setActionBusy(false);
+      setBusyLabel(null);
     }
   }
 
   async function loadMatches(nextPage = page) {
     setMatchesLoading(true);
+    setBusyLabel("Chargement des meilleurs matchs FACEIT…");
     setError(null);
+    await yieldToUi();
     try {
       const result = await invoke<FaceitBestMatchesResult>("list_faceit_best_matches", {
         request: {
@@ -135,16 +163,23 @@ export function FaceitScreen({ onBack, onUseDemo, onUseLobby }: Props) {
       });
       setMatches(result);
       setPage(result.page);
+      if (result.errors?.length) {
+        setError(result.errors.slice(0, 3).join(" · "));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setMatchesLoading(false);
+      setBusyLabel(null);
     }
   }
 
   async function downloadAndUse(matchId: string, url: string) {
     setError(null);
+    setActionBusy(true);
+    setBusyLabel(`Téléchargement démo ${matchId}…`);
     setStatus(`Téléchargement démo ${matchId}…`);
+    await yieldToUi();
     try {
       const result = await invoke<{ path: string }>("download_faceit_demo", {
         request: {
@@ -155,14 +190,15 @@ export function FaceitScreen({ onBack, onUseDemo, onUseLobby }: Props) {
       });
       setStatus(`Démo prête : ${result.path}`);
       onUseDemo(result.path);
-      // Also generate lobby screenshot for intro when possible.
       try {
-        setStatus(`Démo OK — capture page lobby FACEIT…`);
+        setBusyLabel("Capture de la page lobby FACEIT…");
+        setStatus("Démo OK — capture page lobby FACEIT…");
+        await yieldToUi();
         const lobby = await invoke<{ path: string }>("generate_faceit_lobby_screenshot", {
           request: { matchId, outPath: null },
         });
         onUseLobby(lobby.path);
-        setStatus(`Démo + screenshot page FACEIT prêts.`);
+        setStatus("Démo + screenshot page FACEIT prêts.");
       } catch (lobbyErr) {
         setStatus(
           `Démo OK. Screenshot page non capturé : ${lobbyErr instanceof Error ? lobbyErr.message : String(lobbyErr)}`,
@@ -171,12 +207,18 @@ export function FaceitScreen({ onBack, onUseDemo, onUseLobby }: Props) {
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setStatus(null);
+    } finally {
+      setActionBusy(false);
+      setBusyLabel(null);
     }
   }
 
   async function makeLobbyScreenshot(matchId: string) {
     setError(null);
+    setActionBusy(true);
+    setBusyLabel("Capture page lobby FACEIT…");
     setStatus(`Capture page lobby FACEIT ${matchId}…`);
+    await yieldToUi();
     try {
       const lobby = await invoke<{ path: string }>("generate_faceit_lobby_screenshot", {
         request: { matchId, outPath: null },
@@ -186,18 +228,21 @@ export function FaceitScreen({ onBack, onUseDemo, onUseLobby }: Props) {
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setStatus(null);
+    } finally {
+      setActionBusy(false);
+      setBusyLabel(null);
     }
   }
 
   return (
     <section className="screen">
+      <BusyOverlay active={busy} label={busyLabel} />
       <header className="screen-header">
         <p className="eyebrow">FACEIT</p>
         <h1>Joueurs trackés & démos</h1>
         <p className="lede">
-          Enregistre des SteamID avec photo + logo équipe, puis liste les meilleurs matchs (Rating
-          FACEIT) sur les 15 dernières parties de chaque joueur. Le screenshot lobby capture la vraie
-          page web du room.
+          Enregistre des SteamID avec photo + logo équipe, puis liste les meilleurs matchs par
+          Rating du match (colonne Rating FACEIT, ex. 1.44) sur les 15 dernières parties.
         </p>
       </header>
 
@@ -216,14 +261,14 @@ export function FaceitScreen({ onBack, onUseDemo, onUseLobby }: Props) {
             type="password"
             value={apiKeyInput}
             placeholder="Coller la clé API…"
-            disabled={loading}
+            disabled={busy}
             onChange={(event) => setApiKeyInput(event.target.value)}
             style={{ minWidth: "16rem" }}
           />
           <button
             type="button"
             className="primary"
-            disabled={loading || !apiKeyInput.trim()}
+            disabled={busy || !apiKeyInput.trim()}
             onClick={() => void saveApiKey()}
           >
             Enregistrer
@@ -239,7 +284,7 @@ export function FaceitScreen({ onBack, onUseDemo, onUseLobby }: Props) {
             <input
               type="text"
               value={steamId}
-              disabled={loading}
+              disabled={busy}
               placeholder="7656119…"
               onChange={(event) => setSteamId(event.target.value)}
             />
@@ -249,14 +294,14 @@ export function FaceitScreen({ onBack, onUseDemo, onUseLobby }: Props) {
             <input
               type="text"
               value={nickname}
-              disabled={loading}
+              disabled={busy}
               onChange={(event) => setNickname(event.target.value)}
             />
           </label>
           <label className="option field">
             <span>Photo joueur</span>
             <div className="inline-actions">
-              <button type="button" onClick={() => void pickPhoto()} disabled={loading}>
+              <button type="button" onClick={() => void pickPhoto()} disabled={busy}>
                 Choisir…
               </button>
               <code className="path">{photoPath ?? "aucune"}</code>
@@ -265,7 +310,7 @@ export function FaceitScreen({ onBack, onUseDemo, onUseLobby }: Props) {
           <label className="option field">
             <span>Logo équipe</span>
             <div className="inline-actions">
-              <button type="button" onClick={() => void pickTeamLogo()} disabled={loading}>
+              <button type="button" onClick={() => void pickTeamLogo()} disabled={busy}>
                 Choisir…
               </button>
               <code className="path">{teamLogoPath ?? "aucun"}</code>
@@ -273,7 +318,7 @@ export function FaceitScreen({ onBack, onUseDemo, onUseLobby }: Props) {
           </label>
         </div>
         <div className="inline-actions" style={{ marginTop: "0.75rem" }}>
-          <button type="button" className="primary" onClick={() => void addPlayer()} disabled={loading}>
+          <button type="button" className="primary" onClick={() => void addPlayer()} disabled={busy}>
             Enregistrer le joueur
           </button>
         </div>
@@ -282,7 +327,7 @@ export function FaceitScreen({ onBack, onUseDemo, onUseLobby }: Props) {
       <div className="panel" style={{ marginTop: "1rem" }}>
         <div className="prereq-top">
           <h2>Joueurs trackés ({players.length})</h2>
-          <button type="button" onClick={() => void refresh()} disabled={loading}>
+          <button type="button" onClick={() => void refresh()} disabled={busy}>
             Rafraîchir
           </button>
         </div>
@@ -303,7 +348,7 @@ export function FaceitScreen({ onBack, onUseDemo, onUseLobby }: Props) {
                     <div className="hint">{player.steam_id}</div>
                   </div>
                 </div>
-                <button type="button" onClick={() => void removePlayer(player.id)}>
+                <button type="button" onClick={() => void removePlayer(player.id)} disabled={busy}>
                   Retirer
                 </button>
               </li>
@@ -314,16 +359,17 @@ export function FaceitScreen({ onBack, onUseDemo, onUseLobby }: Props) {
 
       <div className="panel" style={{ marginTop: "1rem" }}>
         <div className="prereq-top">
-          <h2>Meilleurs matchs (Rating · 15 derniers / joueur)</h2>
+          <h2>Meilleurs matchs (Rating du match · 15 derniers / joueur)</h2>
           <button
             type="button"
             className="primary"
             onClick={() => void loadMatches(1)}
-            disabled={matchesLoading || players.length === 0 || !settings?.hasApiKey}
+            disabled={busy || players.length === 0 || !settings?.hasApiKey}
           >
             {matchesLoading ? "Chargement…" : "Charger"}
           </button>
         </div>
+        {matchesLoading && !matches && <p className="hint">Récupération des matchs en cours…</p>}
         {matches && (
           <>
             <p className="hint">
@@ -334,10 +380,7 @@ export function FaceitScreen({ onBack, onUseDemo, onUseLobby }: Props) {
                 <article key={`${item.match_id}-${item.steam_id}`} className="match-card">
                   <div>
                     <strong>
-                      {item.nickname} · Rating{" "}
-                      {item.faceit_elo != null
-                        ? item.faceit_elo
-                        : (item.faceit_rating ?? item.rating ?? 0).toFixed(2)}
+                      {item.nickname} · {(item.faceit_rating ?? item.rating ?? 0).toFixed(2)} Rating
                     </strong>
                     <div className="hint">
                       {item.kills}-{item.deaths}-{item.assists}
@@ -347,13 +390,18 @@ export function FaceitScreen({ onBack, onUseDemo, onUseLobby }: Props) {
                     </div>
                   </div>
                   <div className="inline-actions">
-                    <button type="button" onClick={() => void makeLobbyScreenshot(item.match_id)}>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void makeLobbyScreenshot(item.match_id)}
+                    >
                       Screenshot lobby
                     </button>
                     {item.has_demo && item.demo_urls[0] ? (
                       <button
                         type="button"
                         className="primary"
+                        disabled={busy}
                         onClick={() => void downloadAndUse(item.match_id, item.demo_urls[0])}
                       >
                         Récupérer démo
@@ -362,7 +410,12 @@ export function FaceitScreen({ onBack, onUseDemo, onUseLobby }: Props) {
                       <span className="hint">Pas de démo API</span>
                     )}
                     {item.faceit_url && (
-                      <a href={item.faceit_url} target="_blank" rel="noreferrer">
+                      <a
+                        className="btn-faceit"
+                        href={item.faceit_url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
                         FACEIT
                       </a>
                     )}
@@ -373,14 +426,14 @@ export function FaceitScreen({ onBack, onUseDemo, onUseLobby }: Props) {
             <div className="inline-actions" style={{ marginTop: "0.75rem" }}>
               <button
                 type="button"
-                disabled={matchesLoading || page <= 1}
+                disabled={busy || page <= 1}
                 onClick={() => void loadMatches(page - 1)}
               >
                 Précédent
               </button>
               <button
                 type="button"
-                disabled={matchesLoading || page >= matches.totalPages}
+                disabled={busy || page >= matches.totalPages}
                 onClick={() => void loadMatches(page + 1)}
               >
                 Suivant
@@ -394,7 +447,7 @@ export function FaceitScreen({ onBack, onUseDemo, onUseLobby }: Props) {
       {status && <p className="status">{status}</p>}
 
       <footer className="actions">
-        <button type="button" onClick={onBack}>
+        <button type="button" onClick={onBack} disabled={busy}>
           Retour import
         </button>
       </footer>

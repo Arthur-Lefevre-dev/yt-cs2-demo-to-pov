@@ -1,18 +1,14 @@
 #!/usr/bin/env node
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { listBestRecentMatches } from "./matches.js";
 import { generateFaceitLobbyScreenshot } from "./lobby-screenshot.js";
+import { downloadFaceitDemo } from "./demo-download.js";
 import {
   loadTrackedPlayers,
   removeTrackedPlayer,
   upsertTrackedPlayer,
 } from "./tracked-players.js";
-import { createWriteStream } from "node:fs";
-import { pipeline } from "node:stream/promises";
-import { createGunzip } from "node:zlib";
-import { Readable } from "node:stream";
 
 function printHelp() {
   console.log(`Usage: node src/cli.js <command> [options]
@@ -22,7 +18,7 @@ Commands:
   upsert-tracked --store <path> --steam-id <id> [--nickname <n>] [--photo <p>] [--team-logo <p>] [--faceit-id <id>]
   remove-tracked --store <path> --id <id>
   best-matches --store <path> [--page 1] [--page-size 10] [--per-player 15] [--api-key <key>]
-  download-demo --url <demoUrl> --out <file.dem>
+  download-demo --url <demoUrl> --out <file.dem> [--match-id <id>] [--api-key <key>]
   lobby-screenshot --match-id <id> --out <lobby.jpg> [--api-key <key>]
                    (captures the real FACEIT room webpage via Chromium)
 
@@ -33,22 +29,6 @@ Env:
 
 function apiKeyFrom(values) {
   return values["api-key"] || process.env.FACEIT_API_KEY || "";
-}
-
-async function downloadDemo(url, outPath) {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Download failed ${response.status}`);
-  }
-  await mkdir(dirname(outPath), { recursive: true });
-  const body = Readable.fromWeb(response.body);
-  const isGz = url.includes(".gz") || outPath.endsWith(".gz");
-  if (isGz && outPath.endsWith(".dem")) {
-    await pipeline(body, createGunzip(), createWriteStream(outPath));
-  } else {
-    await pipeline(body, createWriteStream(outPath));
-  }
-  return outPath;
 }
 
 async function main() {
@@ -129,6 +109,7 @@ async function main() {
       page: values.page ? Number(values.page) : 1,
       pageSize: values["page-size"] ? Number(values["page-size"]) : 10,
       perPlayerLimit: values["per-player"] ? Number(values["per-player"]) : 15,
+      storePath: resolve(values.store),
     });
     console.log(JSON.stringify(result, null, 2));
     return;
@@ -138,8 +119,13 @@ async function main() {
     if (!values.url || !values.out) {
       throw new Error("--url and --out required");
     }
-    const path = await downloadDemo(values.url, resolve(values.out));
-    console.log(JSON.stringify({ path }, null, 2));
+    const result = await downloadFaceitDemo({
+      url: values.url,
+      outPath: resolve(values.out),
+      matchId: values["match-id"] || null,
+      apiKey: apiKeyFrom(values),
+    });
+    console.log(JSON.stringify({ path: result.path }, null, 2));
     return;
   }
 
