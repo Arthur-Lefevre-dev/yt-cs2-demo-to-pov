@@ -112,7 +112,10 @@ async function main() {
           focusPlayerSteamId: String(values.player),
         });
         if (code !== 0) {
-          throw new Error(`csdm video failed for round ${item.round} (exit ${code})`);
+          throw new Error(
+            `csdm video failed for round ${item.round} (exit ${code}). ` +
+              `If you saw "Steam is not running", start Steam and retry.`,
+          );
         }
       }
     } else {
@@ -136,7 +139,10 @@ async function main() {
       focusPlayerSteamId: String(values.player),
     });
     if (code !== 0) {
-      throw new Error(`csdm video failed (exit ${code})`);
+      throw new Error(
+        `csdm video failed (exit ${code}). ` +
+          `If you saw "Steam is not running", start Steam and retry.`,
+      );
     }
   } else {
     console.error("Dry-run OK. Re-run with --run to invoke CSDM.");

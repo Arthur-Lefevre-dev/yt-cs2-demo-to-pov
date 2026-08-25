@@ -134,8 +134,9 @@ export function RenderScreen({
         )}
         {!dryRun && runCsdm && (
           <p className="warn">
-            Attention : l’enregistrement HLAE prend longtemps (surtout avec tous les
-            rounds) et monopolise CS2. Commence par 1 round pour tester.
+            Attention : Steam doit être lancé et connecté. L’enregistrement HLAE prend
+            longtemps (surtout avec tous les rounds) et monopolise CS2. Commence par 1
+            round pour tester.
           </p>
         )}
         <label className="option field">

@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
+import { ensureSteamRunning } from "./steam.js";
 
 /**
  * Quote one argument for logging / cmd.exe fallback.
@@ -128,12 +129,21 @@ export function runCsdmVideo({
         }
       }
 
+      // CSDM refuses to start CS2 when Steam is not running.
+      await ensureSteamRunning({ onLog });
+
       const videoArgs = ["video", "--config-file", configFilePath, ...extraArgs];
       if (focusPlayerSteamId) {
         videoArgs.push("--focus-player", String(focusPlayerSteamId));
       }
 
       const code = await spawnLogged(launch, videoArgs, onLog);
+      if (code !== 0) {
+        onLog(
+          "\nHint: if the log says \"Steam is not running\", open Steam, " +
+            "wait until you are logged in, then retry.\n",
+        );
+      }
       resolve(code);
     } catch (error) {
       reject(error);

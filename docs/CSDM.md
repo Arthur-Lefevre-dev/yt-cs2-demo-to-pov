@@ -10,6 +10,9 @@ Document de recherche préalable au `csdm-bridge`. Sources : docs officielles (v
   `csdm` / `csdm.exe`.
 - **Une demo doit déjà être analysée et présente dans la base CSDM** avant
   `csdm video`. Sinon : `csdm analyze "C:\path\demo.dem" --source faceit`.
+- **Steam doit être lancé et connecté** avant `csdm video` (sinon CSDM
+  affiche `Steam is not running` et quitte). Le bridge tente de démarrer
+  Steam automatiquement s’il est fermé.
 - CSDM peut télécharger HLAE / FFmpeg / VirtualDub tout seul s’ils manquent.
 
 ## Trois façons d’appeler `csdm video`

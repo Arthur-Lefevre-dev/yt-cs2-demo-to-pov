@@ -142,6 +142,42 @@ fn detect_ffmpeg() -> Option<PathBuf> {
     which("ffmpeg")
 }
 
+fn detect_steam_exe() -> Option<PathBuf> {
+    let mut candidates = Vec::new();
+    if let Ok(steam_path) = env::var("STEAM_PATH") {
+        candidates.push(PathBuf::from(steam_path).join("steam.exe"));
+    }
+    for root in [
+        r"C:\Program Files (x86)\Steam",
+        r"C:\Program Files\Steam",
+        r"D:\Steam",
+        r"E:\Steam",
+    ] {
+        candidates.push(Path::new(root).join("steam.exe"));
+    }
+    first_existing(&candidates)
+}
+
+/// True when the Steam client process is running (required by CSDM video).
+fn is_steam_running() -> bool {
+    #[cfg(windows)]
+    {
+        let output = Command::new("tasklist")
+            .args(["/FI", "IMAGENAME eq steam.exe", "/NH"])
+            .output()
+            .ok();
+        if let Some(out) = output {
+            let text = String::from_utf8_lossy(&out.stdout).to_lowercase();
+            return text.contains("steam.exe");
+        }
+        false
+    }
+    #[cfg(not(windows))]
+    {
+        false
+    }
+}
+
 fn detect_node() -> Option<PathBuf> {
     which("node")
 }
@@ -229,6 +265,8 @@ pub fn check_prerequisites() -> PrerequisitesReport {
     let csdm = detect_csdm();
     let hlae = detect_hlae();
     let ffmpeg = detect_ffmpeg();
+    let steam_exe = detect_steam_exe();
+    let steam_running = is_steam_running();
 
     let items = vec![
         PrerequisiteItem {
@@ -263,6 +301,21 @@ pub fn check_prerequisites() -> PrerequisitesReport {
             path: cs2.as_ref().map(|p| p.display().to_string()),
             install_url: Some("https://store.steampowered.com/app/730/".into()),
             hint: Some("Needed for video recording (step 5+).".into()),
+        },
+        PrerequisiteItem {
+            id: "steam".into(),
+            label: "Steam (en cours)".into(),
+            required: false,
+            found: steam_running,
+            path: steam_exe.as_ref().map(|p| p.display().to_string()),
+            install_url: Some("https://store.steampowered.com/about/".into()),
+            hint: Some(
+                if steam_running {
+                    "Steam is running — OK for csdm video.".into()
+                } else {
+                    "Launch Steam and stay logged in before recording (csdm video).".into()
+                },
+            ),
         },
         PrerequisiteItem {
             id: "csdm".into(),
