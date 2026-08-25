@@ -24,6 +24,7 @@ export {
 } from "./client.js";
 export { listBestRecentMatches } from "./matches.js";
 export {
+  buildRoomUrlCandidates,
   captureFaceitRoomScreenshot,
   extractLobbyTeams,
   generateFaceitLobbyScreenshot,

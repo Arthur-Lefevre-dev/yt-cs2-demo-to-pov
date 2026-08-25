@@ -92,13 +92,20 @@ describe("extractDemoUrls", () => {
 
 describe("isDirectDemoDownloadUrl", () => {
   it("rejects private demos.faceit.com resource hosts", async () => {
-    const { isDirectDemoDownloadUrl } = await import("../src/demo-download.js");
+    const { isDirectDemoDownloadUrl, isBrokenFaceitDemoHost } = await import(
+      "../src/demo-download.js"
+    );
+    assert.equal(
+      isDirectDemoDownloadUrl("https://demos.faceit.com/cs2/1-abc-1-1.dem.gz"),
+      false,
+    );
     assert.equal(
       isDirectDemoDownloadUrl(
-        "https://demos.faceit.com/cs2/1-abc-1-1.dem.gz",
+        "https://demos-us-east.backblaze.faceit-cdn.net/cs2/x.dem.gz?X-Amz-Signature=x",
       ),
       false,
     );
+    assert.equal(isBrokenFaceitDemoHost("demos-us-east.backblaze.faceit-cdn.net"), true);
     assert.equal(
       isDirectDemoDownloadUrl(
         "https://demos-europe-west2.faceit-cdn.net/cs2/1-abc.dem.gz?X-Amz-Signature=x",

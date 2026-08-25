@@ -10,13 +10,14 @@ In the app: sidebar **FACEIT** → add SteamID64 + photo + team logo → **Charg
 
 ### Demo download
 
-FACEIT Data API returns private `demos.faceit.com` resource URLs (they do **not** resolve in public DNS → `ENOTFOUND`).
+FACEIT Data API returns private `demos.faceit.com` resource URLs (they do **not** resolve in public DNS → `ENOTFOUND`). Scraped hosts like `demos-us-east.backblaze.faceit-cdn.net` are also invalid.
 
-The app resolves a real download link by:
-1. FACEIT **Downloads API** signed URL (if your API key has Downloads scope), else
-2. Opening the match room in Chromium and capturing the CDN demo URL.
+The app downloads by:
+1. Chromium on the match room → click **Watch Demo** and save the file (preferred), else
+2. FACEIT **Downloads API** signed URL (if your API key has Downloads scope), else
+3. Node fetch of a DNS-reachable CDN URL only.
 
-If both fail, download the `.dem` manually from faceit.com and use Import.
+If all fail, download the `.dem` manually from faceit.com and use Import.
 
 ### Lobby screenshot
 
