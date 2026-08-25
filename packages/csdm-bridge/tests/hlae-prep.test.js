@@ -16,6 +16,7 @@ describe("injectEarlyDemoCommands", () => {
     assert.ok(!data[0].actions.some((a) => a.cmd === "demoui"));
     assert.ok(data[0].actions.some((a) => a.tick === 96 && a.cmd === "demo_ui_mode 0"));
     assert.ok(data[0].actions.some((a) => a.tick === 96 && a.cmd === "cl_demo_predict 2"));
-    assert.ok(data[0].actions.some((a) => a.cmd === "cl_draw_only_deathnotices 0"));
+    // Must not flood extra setup ticks (breaks gototick).
+    assert.equal(data[0].actions.filter((a) => a.cmd === "demo_ui_mode 0").length, 1);
   });
 });

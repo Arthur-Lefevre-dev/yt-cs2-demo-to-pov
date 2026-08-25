@@ -102,28 +102,28 @@ async function main() {
     }
 
     if (values.run) {
-      // Record all selected rounds in ONE CS2/HLAE session.
-      // After death (sequence endTick), CSDM jumps to the next sequence — no CS2 relaunch.
-      const multiPath = resolve(outDir, "csdm-video-run.json");
-      const multiConfig = toCsdmConfigFile({
-        ...config,
-        // Keep per-round output names with tick ranges for the assembler.
-        outputFileName: config.outputFileName ?? `pov-${(parsed.map ?? "map").replace(/[^\w-]+/g, "_")}-r{sequence}`,
-        closeGameAfterRecording: true,
-        concatenateSequences: false,
-      });
-      await writeFile(multiPath, `${JSON.stringify(multiConfig, null, 2)}\n`, "utf8");
-      console.error(`Wrote ${multiPath} (${multiConfig.sequences.length} sequences, single CS2 session)`);
-      console.error(`\n--- Recording ${multiConfig.sequences.length} round(s) (cut on death → next round) ---`);
-      const code = await runCsdmVideo({
-        configFilePath: multiPath,
-        demoPath: parsed.demo_path,
-        analyze: !values["no-analyze"],
-        focusPlayerSteamId: String(values.player),
-        trueView: !values["no-true-view"],
-      });
-      if (code !== 0) {
-        throw new Error(`csdm video failed (exit ${code}). ${explainCsdmExitCode(code)}`);
+      // One `csdm video` per round (CS2 relaunches). More reliable than multi-sequence
+      // for demo_gototick / death cut — CSDM single-session queues often fail to skip.
+      let demoPath = parsed.demo_path;
+      for (const [index, item] of written.entries()) {
+        const partCfg = JSON.parse(await readFile(item.path, "utf8"));
+        const seq = partCfg.sequences?.[0];
+        console.error(
+          `\n--- Recording round ${item.round} (${index + 1}/${written.length}) ` +
+            `ticks ${seq?.startTick}→${seq?.endTick} via csdm video ---`,
+        );
+        const code = await runCsdmVideo({
+          configFilePath: item.path,
+          demoPath,
+          analyze: index === 0 && !values["no-analyze"],
+          focusPlayerSteamId: String(values.player),
+          trueView: !values["no-true-view"],
+        });
+        if (code !== 0) {
+          throw new Error(
+            `csdm video failed for round ${item.round} (exit ${code}). ${explainCsdmExitCode(code)}`,
+          );
+        }
       }
     } else {
       console.error(

@@ -98,6 +98,7 @@ export function ensureCsdmPovSettings(onLog = () => {}) {
 
 /**
  * Inject early tick commands into a CSDM actions JSON (demo.dem.json).
+ * Keep this minimal — heavy edits break demo_gototick / sequence cuts.
  * @param {unknown} data
  * @returns {boolean} whether the structure was modified
  */
@@ -122,7 +123,8 @@ export function injectEarlyDemoCommands(data) {
       changed = true;
     }
 
-    for (const cmd of EARLY_CMDS) {
+    // Only two early cmds — do not flood setup ticks (breaks gototick).
+    for (const cmd of ["demo_ui_mode 0", "cl_demo_predict 2"]) {
       const exists = seq.actions.some(
         (a) => Number(a.tick) <= 96 && String(a.cmd).trim() === cmd,
       );
@@ -131,34 +133,13 @@ export function injectEarlyDemoCommands(data) {
         changed = true;
       }
     }
-
-    // Also reinforce at the first setup / gototick-related exec ticks.
-    const setupTicks = [
-      ...new Set(
-        seq.actions
-          .map((a) => Number(a.tick))
-          .filter((t) => Number.isFinite(t) && t > 96)
-          .sort((a, b) => a - b)
-          .slice(0, 3),
-      ),
-    ];
-    for (const tick of setupTicks) {
-      for (const cmd of ["demo_ui_mode 0", "cl_demo_predict 2", "cl_draw_only_deathnotices 0"]) {
-        const exists = seq.actions.some(
-          (a) => Number(a.tick) === tick && String(a.cmd).trim() === cmd,
-        );
-        if (!exists) {
-          seq.actions.push({ tick, cmd });
-          changed = true;
-        }
-      }
-    }
   }
   return changed;
 }
 
 /**
  * Poll demoPath.json and patch TrueView / demoui as soon as CSDM writes it.
+ * Stops after the first successful patch to avoid racing CS2 while it reads the file.
  * @param {string} demoPath
  * @param {(line: string) => void} [onLog]
  */
@@ -166,9 +147,12 @@ export function startDemoActionsPatcher(demoPath, onLog = () => {}) {
   const actionsPath = `${demoPath}.json`;
   let lastMtime = 0;
   let lastSize = -1;
-  let patches = 0;
+  let patched = false;
 
   const timer = setInterval(() => {
+    if (patched) {
+      return;
+    }
     try {
       if (!existsSync(actionsPath)) {
         return;
@@ -182,10 +166,11 @@ export function startDemoActionsPatcher(demoPath, onLog = () => {}) {
       const raw = readFileSync(actionsPath, "utf8");
       const data = JSON.parse(raw);
       if (!injectEarlyDemoCommands(data)) {
+        patched = true;
         return;
       }
       writeFileSync(actionsPath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
-      patches += 1;
+      patched = true;
       onLog(`Patched demo actions JSON (${actionsPath}) — TrueView + hide demoui\n`);
     } catch {
       // File may be mid-write; retry next tick.
@@ -196,17 +181,6 @@ export function startDemoActionsPatcher(demoPath, onLog = () => {}) {
     actionsPath,
     stop() {
       clearInterval(timer);
-      if (patches === 0 && existsSync(actionsPath)) {
-        try {
-          const data = JSON.parse(readFileSync(actionsPath, "utf8"));
-          if (injectEarlyDemoCommands(data)) {
-            writeFileSync(actionsPath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
-            onLog(`Final patch of demo actions JSON (${actionsPath})\n`);
-          }
-        } catch {
-          // ignore
-        }
-      }
     },
   };
 }
