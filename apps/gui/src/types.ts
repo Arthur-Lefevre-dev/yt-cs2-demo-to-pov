@@ -48,6 +48,7 @@ export type PlayerRound = {
   player_death_tick: number | null;
   round_end_tick: number;
   clip_end_tick: number;
+  clip_start_tick?: number;
   player_side: "CT" | "T" | string;
   team_steam_ids: string[];
   survived: boolean;
@@ -73,6 +74,13 @@ export type ParseResult = {
   players: DemoPlayer[];
   rounds: DemoRound[];
   player_rounds: PlayerRound[];
+  player_smokes?: Array<{
+    steam_id: string;
+    round_number: number;
+    throw_tick: number;
+    chapter_tick: number;
+    label: string;
+  }>;
   skipped_rounds: Array<{
     steam_id: string;
     name: string;
@@ -123,8 +131,54 @@ export type ThumbnailResult = {
 export type AppScreen =
   | "setup"
   | "import"
+  | "faceit"
   | "players"
   | "rounds"
   | "render"
   | "result"
   | "thumbnails";
+
+export type TrackedPlayer = {
+  id: string;
+  steam_id: string;
+  faceit_player_id?: string;
+  nickname?: string;
+  display_name?: string;
+  photo_path?: string | null;
+  team_logo_path?: string | null;
+};
+
+export type FaceitSettings = {
+  hasApiKey: boolean;
+  storePath: string;
+  apiKeyPath: string;
+};
+
+export type FaceitMatchItem = {
+  match_id: string;
+  finished_at: number | null;
+  competition_name: string | null;
+  faceit_url: string | null;
+  steam_id: string;
+  nickname: string;
+  kills: number;
+  deaths: number;
+  assists: number;
+  kd: number;
+  rounds?: number;
+  rating: number;
+  faceit_elo?: number | null;
+  faceit_rating: number;
+  map: string | null;
+  result: string | null;
+  demo_urls: string[];
+  has_demo: boolean;
+};
+
+export type FaceitBestMatchesResult = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  items: FaceitMatchItem[];
+};

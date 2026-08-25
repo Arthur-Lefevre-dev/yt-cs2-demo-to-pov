@@ -18,6 +18,7 @@ import {
   inferEventName,
 } from "./match-meta.js";
 import { analyzeRoundHighlight, formatRoundChapterLabel } from "./highlights.js";
+import { collectAllSmokeThrows, mapSmokesToRounds } from "./smokes.js";
 
 const EVENT_NAMES = [
   "begin_new_match",
@@ -259,6 +260,7 @@ export function parseDemo(demoPath, options = {}) {
         freeze_end_tick: round.freeze_end_tick,
         player_death_tick: deathTick,
         round_end_tick: round.end_tick,
+        clip_start_tick: clipStartTick,
         clip_end_tick: clipEndTick,
         player_side: side,
         team_steam_ids: teamSteamIds,
@@ -283,6 +285,15 @@ export function parseDemo(demoPath, options = {}) {
 
   if (selectedSteamId && !players.some((player) => player.steam_id === selectedSteamId)) {
     throw new Error(`Player ${selectedSteamId} not found in demo roster`);
+  }
+
+  /** @type {Array<object>} */
+  let playerSmokes = [];
+  try {
+    const throws = collectAllSmokeThrows(absolutePath, tickrate);
+    playerSmokes = mapSmokesToRounds(throws, rounds, tickrate, 3, selectedSteamId);
+  } catch {
+    playerSmokes = [];
   }
 
   const serverName = header.server_name ?? header.servername ?? null;
@@ -319,6 +330,7 @@ export function parseDemo(demoPath, options = {}) {
       winner: round.winner,
     })),
     player_rounds: filteredRounds,
+    player_smokes: playerSmokes,
     skipped_rounds: filteredSkipped,
   };
 }

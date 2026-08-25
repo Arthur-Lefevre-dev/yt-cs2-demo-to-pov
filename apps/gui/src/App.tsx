@@ -7,6 +7,7 @@ import { PlayersScreen } from "./screens/PlayersScreen";
 import { RoundsScreen } from "./screens/RoundsScreen";
 import { RenderScreen } from "./screens/RenderScreen";
 import { ResultScreen } from "./screens/ResultScreen";
+import { FaceitScreen } from "./screens/FaceitScreen";
 import { ThumbnailScreen } from "./screens/ThumbnailScreen";
 import type {
   AppScreen,
@@ -209,6 +210,14 @@ function App() {
           </button>
           <button
             type="button"
+            className={screen === "faceit" ? "step active" : "step"}
+            onClick={() => prerequisites?.readyForParse && setScreen("faceit")}
+            disabled={!prerequisites?.readyForParse}
+          >
+            FACEIT
+          </button>
+          <button
+            type="button"
             className={screen === "players" ? "step active" : "step"}
             onClick={() => parseResult && setScreen("players")}
             disabled={!parseResult}
@@ -270,6 +279,19 @@ function App() {
             onLobbyPath={setLobbyPath}
             onParse={() => void handleParse()}
             onBack={() => setScreen("setup")}
+            onOpenFaceit={() => setScreen("faceit")}
+          />
+        )}
+        {screen === "faceit" && (
+          <FaceitScreen
+            onBack={() => setScreen("import")}
+            onUseDemo={(path) => {
+              setDemoPath(path);
+              setScreen("import");
+            }}
+            onUseLobby={(path) => {
+              setLobbyPath(path);
+            }}
           />
         )}
         {screen === "players" && parseResult && (

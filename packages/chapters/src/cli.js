@@ -2,7 +2,11 @@
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { buildChapters, chaptersFromAssembleResult } from "./chapters.js";
+import {
+  buildChapters,
+  buildSmokeMarkersFromParse,
+  chaptersFromAssembleResult,
+} from "./chapters.js";
 
 function printHelp() {
   console.log(`Usage:
@@ -13,6 +17,9 @@ Options:
   --clips <label=path,...>     Ordered chapter clips
   --assemble-json <path>       JSON from video-assembler CLI stdout
   --round-labels <a|b|c>       Labels for round clips (pipe-separated, order = selected rounds)
+  --parse-json <path>          demo-parser JSON (for smoke chapter markers)
+  --steam-id <id>              POV player SteamID64 (with --parse-json)
+  --rounds <n,n,...>           Selected round numbers (with --parse-json)
   --out <path>                 Write chapter text to file
   --help
 `);
@@ -24,6 +31,9 @@ async function main() {
       clips: { type: "string" },
       "assemble-json": { type: "string" },
       "round-labels": { type: "string" },
+      "parse-json": { type: "string" },
+      "steam-id": { type: "string" },
+      rounds: { type: "string" },
       out: { type: "string" },
       help: { type: "boolean", short: "h", default: false },
     },
@@ -42,7 +52,24 @@ async function main() {
     const roundLabels = values["round-labels"]
       ? values["round-labels"].split("|").map((part) => part.trim()).filter(Boolean)
       : undefined;
-    result = await chaptersFromAssembleResult(assembleResult, { roundLabels });
+
+    let smokeMarkers = [];
+    if (values["parse-json"] && values["steam-id"] && values.rounds) {
+      const parsed = JSON.parse(await readFile(resolve(values["parse-json"]), "utf8"));
+      const rounds = values.rounds
+        .split(",")
+        .map((part) => Number(part.trim()))
+        .filter((n) => Number.isFinite(n));
+      smokeMarkers = buildSmokeMarkersFromParse({
+        playerSmokes: parsed.player_smokes ?? [],
+        playerRounds: parsed.player_rounds ?? [],
+        steamId: values["steam-id"],
+        rounds,
+        tickrate: parsed.tickrate ?? 64,
+      });
+    }
+
+    result = await chaptersFromAssembleResult(assembleResult, { roundLabels, smokeMarkers });
   } else {
     const clips = values.clips.split(",").map((part) => {
       const idx = part.indexOf("=");

@@ -80,8 +80,20 @@ fn estimated_chapters(
     lines.push(format!("{} Lobby", format_ts(cursor)));
     cursor += intro_seconds;
 
+    let tickrate = parse
+        .get("tickrate")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(64.0)
+        .max(1.0);
+
     let player_rounds = parse
         .get("player_rounds")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+
+    let player_smokes = parse
+        .get("player_smokes")
         .and_then(|v| v.as_array())
         .cloned()
         .unwrap_or_default();
@@ -104,6 +116,42 @@ fn estimated_chapters(
                 .map(|s| s.to_string())
                 .unwrap_or_else(|| format!("Round {round_number}"))
         ));
+
+        let clip_start = row
+            .and_then(|entry| entry.get("clip_start_tick"))
+            .and_then(|v| v.as_f64())
+            .or_else(|| {
+                row.and_then(|entry| entry.get("round_start_tick"))
+                    .and_then(|v| v.as_f64())
+            })
+            .unwrap_or(0.0);
+
+        for smoke in &player_smokes {
+            let same_player = smoke.get("steam_id").and_then(|v| v.as_str()) == Some(steam_id);
+            let same_round = smoke
+                .get("round_number")
+                .and_then(|v| v.as_u64())
+                == Some(u64::from(*round_number));
+            if !same_player || !same_round {
+                continue;
+            }
+            let chapter_tick = smoke
+                .get("chapter_tick")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
+            let offset = ((chapter_tick - clip_start) / tickrate).max(0.0);
+            if offset >= duration {
+                continue;
+            }
+            let label = smoke
+                .get("label")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| format!("Smoke R{round_number}"));
+            lines.push(format!("{} {}", format_ts(cursor + offset), label));
+        }
+
         cursor += duration;
 
         if commercial_after_r1 && index == 0 {
@@ -482,6 +530,13 @@ fn run_pipeline_inner(app: AppHandle, request: PipelineRequest) -> Result<Pipeli
             })
             .collect();
         let labels_joined = round_labels.join("|");
+        let rounds_csv = request
+            .rounds
+            .iter()
+            .map(|n| n.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+        let parsed_path = work_dir.join("parsed.json");
         let mut chapter_args = vec![
             OsString::from("--assemble-json"),
             result_json.as_os_str().to_os_string(),
@@ -491,6 +546,14 @@ fn run_pipeline_inner(app: AppHandle, request: PipelineRequest) -> Result<Pipeli
         if !labels_joined.is_empty() {
             chapter_args.push(OsString::from("--round-labels"));
             chapter_args.push(OsString::from(&labels_joined));
+        }
+        if parsed_path.is_file() {
+            chapter_args.push(OsString::from("--parse-json"));
+            chapter_args.push(parsed_path.as_os_str().to_os_string());
+            chapter_args.push(OsString::from("--steam-id"));
+            chapter_args.push(OsString::from(&request.steam_id));
+            chapter_args.push(OsString::from("--rounds"));
+            chapter_args.push(OsString::from(&rounds_csv));
         }
         let chapters_out = stream_cli(
             &app,

@@ -25,3 +25,8 @@ export {
   formatRoundChapterLabel,
   shortWeaponName,
 } from "./highlights.js";
+export {
+  collectAllSmokeThrows,
+  mapSmokesToRounds,
+  SMOKE_LEAD_SECONDS,
+} from "./smokes.js";

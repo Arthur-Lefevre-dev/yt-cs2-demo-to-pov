@@ -78,10 +78,15 @@ export async function buildChapters(clips, { ffprobePath } = {}) {
 
 /**
  * Convenience: intro + Round N (+ optional Sponsors after R1) from assembler result.
+ * Optionally injects smoke chapter markers (3s before throw) inside round clips.
  * @param {object} assembleResult
- * @param {{ ffprobePath?: string, roundLabels?: string[] }} [options]
+ * @param {{
+ *   ffprobePath?: string,
+ *   roundLabels?: string[],
+ *   smokeMarkers?: Array<{ roundNumber: number, offsetSeconds: number, label?: string }>,
+ * }} [options]
  */
-export async function chaptersFromAssembleResult(assembleResult, { ffprobePath, roundLabels } = {}) {
+export async function chaptersFromAssembleResult(assembleResult, { ffprobePath, roundLabels, smokeMarkers } = {}) {
   /** @type {ChapterClip[]} */
   const clips = [];
   const paths = assembleResult.clipPaths ?? [];
@@ -89,6 +94,8 @@ export async function chaptersFromAssembleResult(assembleResult, { ffprobePath, 
   const commercialLabel = assembleResult.commercialLabel || "Sponsors";
   const labels = roundLabels ?? assembleResult.roundLabels ?? [];
   let roundIndex = 0;
+  /** @type {number[]} */
+  const roundEntryIndexes = [];
 
   for (let i = 0; i < paths.length; i += 1) {
     const path = paths[i];
@@ -108,8 +115,93 @@ export async function chaptersFromAssembleResult(assembleResult, { ffprobePath, 
       continue;
     }
     const label = labels[roundIndex] || `Round ${roundIndex + 1}`;
+    roundEntryIndexes.push(clips.length);
     clips.push({ label, path });
     roundIndex += 1;
   }
-  return buildChapters(clips, { ffprobePath });
+
+  const base = await buildChapters(clips, { ffprobePath });
+  return injectSmokeMarkers(base, roundEntryIndexes, smokeMarkers ?? []);
+}
+
+/**
+ * Insert smoke chapter lines inside round windows (YouTube markers only).
+ * `markers[].roundIndex` is the index in the selected-rounds order (0 = first played round clip).
+ * @param {{ entries: Array<object>, text: string, totalSeconds: number }} base
+ * @param {number[]} roundEntryIndexes indexes into base.entries for each selected round
+ * @param {Array<{ roundIndex: number, offsetSeconds: number, label?: string }>} markers
+ */
+export function injectSmokeMarkers(base, roundEntryIndexes, markers) {
+  if (!markers?.length || !roundEntryIndexes?.length) {
+    return base;
+  }
+
+  /** @type {Array<{ label: string, startSeconds: number, durationSeconds: number, timestamp: string }>} */
+  const extra = [];
+  for (const marker of markers) {
+    const entryIndex = roundEntryIndexes[marker.roundIndex];
+    if (entryIndex == null) {
+      continue;
+    }
+    const roundEntry = base.entries[entryIndex];
+    if (!roundEntry) {
+      continue;
+    }
+    const offset = Math.max(0, Number(marker.offsetSeconds) || 0);
+    if (offset >= roundEntry.durationSeconds) {
+      continue;
+    }
+    const startSeconds = roundEntry.startSeconds + offset;
+    extra.push({
+      label: marker.label || "Smoke",
+      startSeconds,
+      durationSeconds: 0,
+      timestamp: formatChapterTimestamp(startSeconds),
+    });
+  }
+
+  const entries = [...base.entries, ...extra].sort((a, b) => a.startSeconds - b.startSeconds);
+  const text = entries.map((entry) => `${entry.timestamp} ${entry.label}`).join("\n");
+  return { entries, text, totalSeconds: base.totalSeconds };
+}
+
+/**
+ * Build smoke markers for selected rounds from demo-parser `player_smokes` + `player_rounds`.
+ * Offset is relative to the recorded clip start (freeze skip applied).
+ * @param {object} input
+ */
+export function buildSmokeMarkersFromParse({
+  playerSmokes = [],
+  playerRounds = [],
+  steamId,
+  rounds = [],
+  tickrate = 64,
+}) {
+  const rate = Math.max(1, Math.round(Number(tickrate) || 64));
+  const selected = rounds.map(Number);
+  /** @type {Array<{ roundIndex: number, offsetSeconds: number, label: string }>} */
+  const markers = [];
+
+  for (const smoke of playerSmokes) {
+    if (steamId && String(smoke.steam_id) !== String(steamId)) {
+      continue;
+    }
+    const roundIndex = selected.indexOf(Number(smoke.round_number));
+    if (roundIndex < 0) {
+      continue;
+    }
+    const row = playerRounds.find(
+      (entry) =>
+        String(entry.steam_id) === String(steamId || smoke.steam_id) &&
+        Number(entry.round_number) === Number(smoke.round_number),
+    );
+    const clipStart = Number(row?.clip_start_tick ?? row?.round_start_tick ?? smoke.chapter_tick);
+    const offsetSeconds = Math.max(0, (Number(smoke.chapter_tick) - clipStart) / rate);
+    markers.push({
+      roundIndex,
+      offsetSeconds: Number(offsetSeconds.toFixed(2)),
+      label: smoke.label || `Smoke R${smoke.round_number}`,
+    });
+  }
+  return markers;
 }

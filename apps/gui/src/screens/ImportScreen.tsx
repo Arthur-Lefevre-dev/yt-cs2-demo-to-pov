@@ -10,6 +10,7 @@ type Props = {
   onLobbyPath: (path: string | null) => void;
   onParse: () => void;
   onBack: () => void;
+  onOpenFaceit?: () => void;
 };
 
 export function ImportScreen({
@@ -21,6 +22,7 @@ export function ImportScreen({
   onLobbyPath,
   onParse,
   onBack,
+  onOpenFaceit,
 }: Props) {
   const [dragOver, setDragOver] = useState(false);
 
@@ -59,8 +61,8 @@ export function ImportScreen({
         <p className="eyebrow">Étape 2 / 7</p>
         <h1>Importer la demo</h1>
         <p className="lede">
-          Charge un fichier <code>.dem</code> FACEIT et optionnellement le
-          screenshot du lobby (intro vidéo plus tard).
+          Charge un fichier <code>.dem</code> FACEIT et optionnellement le screenshot du lobby
+          (intro vidéo). Ou ouvre l’onglet FACEIT pour tracker des joueurs et récupérer des démos.
         </p>
       </header>
 
@@ -102,6 +104,11 @@ export function ImportScreen({
         <button type="button" onClick={onBack} disabled={parsing}>
           Retour
         </button>
+        {onOpenFaceit && (
+          <button type="button" onClick={onOpenFaceit} disabled={parsing}>
+            Joueurs FACEIT…
+          </button>
+        )}
         <button
           type="button"
           className="primary"

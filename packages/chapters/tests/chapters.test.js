@@ -27,3 +27,22 @@ describe("buildChapters", () => {
     assert.equal(result.totalSeconds, 62.4);
   });
 });
+
+describe("injectSmokeMarkers", () => {
+  it("inserts smoke markers inside round windows", async () => {
+    const { injectSmokeMarkers } = await import("../src/chapters.js");
+    const base = await buildChapters([
+      { label: "Lobby", durationSeconds: 4 },
+      { label: "Round 1", durationSeconds: 40 },
+      { label: "Round 2", durationSeconds: 30 },
+    ]);
+    const result = injectSmokeMarkers(base, [1, 2], [
+      { roundIndex: 0, offsetSeconds: 10, label: "Smoke R1" },
+      { roundIndex: 1, offsetSeconds: 5, label: "Smoke R2" },
+    ]);
+    assert.equal(
+      result.text,
+      ["0:00 Lobby", "0:04 Round 1", "0:14 Smoke R1", "0:44 Round 2", "0:49 Smoke R2"].join("\n"),
+    );
+  });
+});

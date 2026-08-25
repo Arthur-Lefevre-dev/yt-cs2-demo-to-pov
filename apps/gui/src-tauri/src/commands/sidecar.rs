@@ -1,5 +1,6 @@
 use std::env;
 use std::ffi::OsString;
+use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -98,6 +99,40 @@ pub fn thumbnails_brand_root() -> PathBuf {
             .join("thumbnails")
             .join("brand"),
     )
+}
+
+/// JSON store for tracked FACEIT players (SteamID + photo + team logo).
+pub fn tracked_players_store_path() -> PathBuf {
+    if is_dev_build() {
+        return to_node_path(
+            workspace_root()
+                .join("fixtures")
+                .join("tracked-players.json"),
+        );
+    }
+    to_node_path(user_app_root().join("tracked-players.json"))
+}
+
+/// Optional FACEIT API key file (plain text). Env FACEIT_API_KEY wins.
+pub fn faceit_api_key_path() -> PathBuf {
+    if is_dev_build() {
+        return to_node_path(workspace_root().join("fixtures").join("faceit-api-key.txt"));
+    }
+    to_node_path(user_app_root().join("faceit-api-key.txt"))
+}
+
+pub fn read_faceit_api_key() -> Option<String> {
+    if let Ok(key) = env::var("FACEIT_API_KEY") {
+        let trimmed = key.trim().to_string();
+        if !trimmed.is_empty() {
+            return Some(trimmed);
+        }
+    }
+    let path = faceit_api_key_path();
+    fs::read_to_string(&path)
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
 }
 
 /// Default thumbnails output when no job work_dir is provided.
