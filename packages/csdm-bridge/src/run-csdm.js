@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { ensureSteamRunning } from "./steam.js";
@@ -118,6 +118,34 @@ export function explainCsdmExitCode(code) {
 }
 
 /**
+ * Ensure CSDM app settings enable TrueView (CLI config alone can still inherit false).
+ * @param {(line: string) => void} onLog
+ */
+function ensureCsdmTrueViewSetting(onLog) {
+  const settingsPath = join(homedir(), ".csdm", "settings.json");
+  if (!existsSync(settingsPath)) {
+    return;
+  }
+  try {
+    const raw = readFileSync(settingsPath, "utf8");
+    const settings = JSON.parse(raw);
+    if (settings?.video?.trueView === true) {
+      return;
+    }
+    if (!settings.video || typeof settings.video !== "object") {
+      settings.video = {};
+    }
+    settings.video.trueView = true;
+    writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
+    onLog(`Updated ${settingsPath}: video.trueView = true\n`);
+  } catch (error) {
+    onLog(
+      `WARNING: could not enable CSDM trueView setting (${error instanceof Error ? error.message : error})\n`,
+    );
+  }
+}
+
+/**
  * Run `csdm analyze` then `csdm video --config-file`.
  * Streams stdout/stderr. Resolves with exit code.
  */
@@ -127,6 +155,7 @@ export function runCsdmVideo({
   analyze = true,
   source = "faceit",
   focusPlayerSteamId = null,
+  trueView = true,
   csdmPath,
   extraArgs = [],
   onLog = (line) => process.stderr.write(line),
@@ -154,12 +183,18 @@ export function runCsdmVideo({
 
       // CSDM refuses to start CS2 when Steam is not running.
       await ensureSteamRunning({ onLog });
+      if (trueView) {
+        ensureCsdmTrueViewSetting(onLog);
+      }
 
       const videoArgs = ["video", "--config-file", configFilePath, ...extraArgs];
       if (focusPlayerSteamId) {
         videoArgs.push("--focus-player", String(focusPlayerSteamId));
       }
-      // HUD / demoui / POV lock live in sequence.cfg (avoid fragile CLI --cfg quoting).
+      // Explicit CLI flag — CSDM settings.json often has trueView:false by default.
+      if (trueView && !extraArgs.includes("--true-view") && !extraArgs.includes("--no-true-view")) {
+        videoArgs.push("--true-view");
+      }
 
       const code = await spawnLogged(launch, videoArgs, onLog);
       if (code !== 0) {

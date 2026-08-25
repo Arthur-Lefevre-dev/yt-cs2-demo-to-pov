@@ -67,6 +67,7 @@ export function clipStartTick(row, tickrate, skipSeconds = -1) {
  *   tickrate: number,
  *   voiceLow: number,
  *   voiceHigh: number,
+ *   trueView?: boolean,
  * }} opts
  */
 export function buildPovSequenceCfg(opts) {
@@ -74,10 +75,14 @@ export function buildPovSequenceCfg(opts) {
   const cameraTick = Math.max(96, Number(opts.cameraTick) || 96);
   const endTick = Math.max(cameraTick + 1, Number(opts.endTick) || cameraTick + 1);
   const tickrate = Math.max(1, Math.round(Number(opts.tickrate) || 64));
+  // 2 = force TrueView even when demo client version mismatches (Valve Nov 2025).
+  const demoPredict = opts.trueView === false ? 0 : 2;
 
   /** @type {string[]} */
   const cfgLines = [
     "sv_cheats 1",
+    // TrueView: client-side prediction POV (must override CSDM settings.video.trueView=false).
+    `cl_demo_predict ${demoPredict}`,
     // First-person POV on the target player (slot = user_id + 1).
     "spec_autodirector 0",
     "spec_mode 1",
@@ -93,16 +98,20 @@ export function buildPovSequenceCfg(opts) {
     "cl_radar_square_always 0",
     "cl_radar_square_when_spectating 0",
     "cl_radar_square_with_scoreboard 0",
-    // Hide CS2 demo playback chrome (timeline / Shift+F2 demoui) — not the game HUD.
+    // Hide CS2 demo playback chrome (bottom player / Shift+F2) — keep game HUD.
     "demo_ui_mode 0",
     "cl_showfps 0",
     "net_graph 0",
     "developer 0",
     "gameinstructor_enable 0",
+    // Hide TrueView status text only (feature stays on via cl_demo_predict).
     "cl_trueview_show_status 0",
     "r_show_build_info 0",
     "mirv_endofmatch enabled 1",
     "mirv_panorama panelStyle panelId=trueview_row opacity=0",
+    // Best-effort hide of remaining demo chrome panels (ignored if id missing).
+    "mirv_panorama panelStyle panelId=HudDemoPlayback opacity=0",
+    "mirv_panorama panelStyle panelId=DemoPlayback opacity=0",
     `tv_listen_voice_indices ${opts.voiceLow >>> 0}`,
     `tv_listen_voice_indices_h ${opts.voiceHigh >>> 0}`,
     "mirv_cmd clear",
@@ -127,13 +136,15 @@ export function buildPovSequenceCfg(opts) {
     cfgLines.push(`mirv_cmd addAtTick ${tick} "spec_player ${slot}"`);
   }
 
-  // Hide demoui + keep HUD a few times (not every half-second).
+  // Re-assert TrueView + hide demoui + keep HUD a few times during the clip.
   for (const tick of [sorted[0], sorted[1], sorted[Math.floor(sorted.length / 2)]].filter(Boolean)) {
+    cfgLines.push(`mirv_cmd addAtTick ${tick} "cl_demo_predict ${demoPredict}"`);
     cfgLines.push(`mirv_cmd addAtTick ${tick} "demo_ui_mode 0"`);
     cfgLines.push(`mirv_cmd addAtTick ${tick} "cl_drawhud 1"`);
     cfgLines.push(`mirv_cmd addAtTick ${tick} "cl_draw_only_deathnotices 0"`);
     cfgLines.push(`mirv_cmd addAtTick ${tick} "crosshair 1"`);
     cfgLines.push(`mirv_cmd addAtTick ${tick} "r_drawviewmodel 1"`);
+    cfgLines.push(`mirv_cmd addAtTick ${tick} "cl_trueview_show_status 0"`);
   }
 
   return cfgLines.join("\n");
@@ -252,6 +263,7 @@ export function buildCsdmVideoConfig(parsed, options) {
       tickrate,
       voiceLow: valueLow,
       voiceHigh: valueHigh,
+      trueView,
     });
 
     // A few camera keys help when CSDM DB resolves playerCameras (analyze + Postgres).

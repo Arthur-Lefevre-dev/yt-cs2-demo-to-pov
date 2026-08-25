@@ -111,6 +111,7 @@ async function main() {
           // Analyze once for the demo, then skip on subsequent rounds.
           analyze: index === 0 && !values["no-analyze"],
           focusPlayerSteamId: String(values.player),
+          trueView: !values["no-true-view"],
         });
         if (code !== 0) {
           throw new Error(
@@ -137,6 +138,7 @@ async function main() {
       demoPath: parsed.demo_path,
       analyze: !values["no-analyze"],
       focusPlayerSteamId: String(values.player),
+      trueView: !values["no-true-view"],
     });
     if (code !== 0) {
       throw new Error(`csdm video failed (exit ${code}). ${explainCsdmExitCode(code)}`);

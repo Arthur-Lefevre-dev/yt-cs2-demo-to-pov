@@ -212,13 +212,14 @@ stricts sur le camp courant : ils sont figés au camp de départ.
 Dans `sequences[].cfg` (et via `mirv_cmd` répétés pendant tout le clip) :
 
 - **Début clip** : `startTick` = `freeze_end` par défaut (passe le buy / « warmup » du round ; jamais avant `match_start_tick`).
+- **TrueView** : `trueView: true` + `cl_demo_predict 2` (force) + flag CLI `--true-view`
+  (les settings CSDM ont souvent `trueView: false` par défaut).
 - **HUD joueur complet** : `cl_drawhud 1`, `cl_draw_only_deathnotices 0`,
   `r_drawviewmodel 1`, `crosshair 1`, `hud_showtargetid 1` + JSON `showOnlyDeathNotices: false`
   → radar, HP, argent, munitions, killfeed, crosshair (comme en jeu).
-- **Caméra** : `spec_mode 1` + `spec_player <slot>` re-appliqué ~toutes les 0,5 s
-  (`mirv_cmd`) pour rester sur le bon joueur tout le round.
-- **Masquer la navigation démo CS2** : `demo_ui_mode 0` (+ `--cfg` CLI) — timeline / demoui Shift+F2.
-- Nettoyage : `cl_showfps 0`, `net_graph 0`, TrueView telemetry opacity 0.
+- **Caméra** : `spec_mode 1` + `spec_player <slot>` re-appliqué pendant le clip
+  (`mirv_cmd`) pour rester sur le bon joueur.
+- **Masquer la barre démo CS2** : `demo_ui_mode 0` (pas le HUD jeu). TrueView reste actif via console.
 
 Ne pas utiliser `cl_draw_only_deathnotices 1` pour du contenu YouTube POV classique.
 

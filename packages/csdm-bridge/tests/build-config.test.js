@@ -82,6 +82,7 @@ describe("buildCsdmVideoConfig", () => {
     assert.equal(sequence.playerCameras[0].tick, 1601);
     assert.equal(sequence.showOnlyDeathNotices, false);
     assert.match(sequence.cfg, /demo_ui_mode 0/);
+    assert.match(sequence.cfg, /cl_demo_predict 2/);
     assert.match(sequence.cfg, /cl_drawhud 1/);
     assert.match(sequence.cfg, /cl_draw_only_deathnotices 0/);
     assert.match(sequence.cfg, /r_drawviewmodel 1/);
