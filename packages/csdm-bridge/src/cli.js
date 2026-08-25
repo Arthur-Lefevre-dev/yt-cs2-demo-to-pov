@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { buildCsdmVideoConfig, splitConfigPerSequence, toCsdmConfigFile } from "./build-config.js";
-import { runCsdmVideo } from "./run-csdm.js";
+import { explainCsdmExitCode, runCsdmVideo } from "./run-csdm.js";
 
 function printHelp() {
   console.log(`Usage: node src/cli.js --parse <parsed.json> --player <steamid> --out-dir <dir> [options]
@@ -24,7 +24,7 @@ Options:
   --death-notices-only Hide full HUD (cinematic); default is full POV HUD
   --no-true-view       Disable CS2 demo predict / true-view feel
   --video-codec <name> libx264 | libx265 | hevc_nvenc | h264_nvenc | hevc_amf | h264_amf
-  --skip-freeze-seconds <n> Skip early freeze/buy in each clip (default 10)
+  --skip-freeze-seconds <n> Skip freeze/buy: -1 = start at freeze_end (default), 0 = include buy, N = skip N seconds
   --end-padding-seconds <n> Hold after death or round end (default 3)
   --help
 `);
@@ -82,9 +82,10 @@ async function main() {
     showOnlyDeathNotices: values["death-notices-only"] ? true : false,
     trueView: values["no-true-view"] ? false : true,
     videoCodec: values["video-codec"] || "libx264",
-    skipFreezeSeconds: values["skip-freeze-seconds"]
-      ? Number(values["skip-freeze-seconds"])
-      : 10,
+    skipFreezeSeconds:
+      values["skip-freeze-seconds"] !== undefined
+        ? Number(values["skip-freeze-seconds"])
+        : -1,
     endPaddingSeconds: values["end-padding-seconds"]
       ? Number(values["end-padding-seconds"])
       : undefined,
@@ -113,8 +114,7 @@ async function main() {
         });
         if (code !== 0) {
           throw new Error(
-            `csdm video failed for round ${item.round} (exit ${code}). ` +
-              `If you saw "Steam is not running", start Steam and retry.`,
+            `csdm video failed for round ${item.round} (exit ${code}). ${explainCsdmExitCode(code)}`,
           );
         }
       }
@@ -139,10 +139,7 @@ async function main() {
       focusPlayerSteamId: String(values.player),
     });
     if (code !== 0) {
-      throw new Error(
-        `csdm video failed (exit ${code}). ` +
-          `If you saw "Steam is not running", start Steam and retry.`,
-      );
+      throw new Error(`csdm video failed (exit ${code}). ${explainCsdmExitCode(code)}`);
     }
   } else {
     console.error("Dry-run OK. Re-run with --run to invoke CSDM.");

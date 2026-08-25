@@ -209,12 +209,15 @@ stricts sur le camp courant : ils sont figés au camp de départ.
 
 ## HUD POV (comme en jeu) + sans UI démo
 
-Dans `sequences[].cfg` (et via `mirv_cmd` après freezetime) :
+Dans `sequences[].cfg` (et via `mirv_cmd` répétés pendant tout le clip) :
 
+- **Début clip** : `startTick` = `freeze_end` par défaut (passe le buy / « warmup » du round ; jamais avant `match_start_tick`).
 - **HUD joueur complet** : `cl_drawhud 1`, `cl_draw_only_deathnotices 0`,
-  `r_drawviewmodel 1`, `hud_showtargetid 1` + JSON `showOnlyDeathNotices: false`
-  → radar, HP, argent, munitions, killfeed, coéquipiers (comme l’image POV live).
-- **Masquer la navigation démo CS2** : `demo_ui_mode 0` (timeline / demoui Shift+F2).
+  `r_drawviewmodel 1`, `crosshair 1`, `hud_showtargetid 1` + JSON `showOnlyDeathNotices: false`
+  → radar, HP, argent, munitions, killfeed, crosshair (comme en jeu).
+- **Caméra** : `spec_mode 1` + `spec_player <slot>` re-appliqué ~toutes les 0,5 s
+  (`mirv_cmd`) pour rester sur le bon joueur tout le round.
+- **Masquer la navigation démo CS2** : `demo_ui_mode 0` (+ `--cfg` CLI) — timeline / demoui Shift+F2.
 - Nettoyage : `cl_showfps 0`, `net_graph 0`, TrueView telemetry opacity 0.
 
 Ne pas utiliser `cl_draw_only_deathnotices 1` pour du contenu YouTube POV classique.

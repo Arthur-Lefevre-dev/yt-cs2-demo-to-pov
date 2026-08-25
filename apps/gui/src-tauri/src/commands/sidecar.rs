@@ -3,7 +3,7 @@ use std::ffi::OsString;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Command, ExitStatus, Stdio};
 use std::sync::mpsc;
 use std::thread;
 
@@ -206,6 +206,7 @@ pub fn run_node_cli_streaming(
 
     let mut child = Command::new(&node)
         .args(&cmd_args)
+        .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -259,9 +260,10 @@ pub fn run_node_cli_streaming(
 
     if !status.success() {
         return Err(format!(
-            "{} failed (exit {:?}):\n{stderr_buf}\n{stdout_buf}",
+            "{} failed (exit {:?}):\n{}\n{stderr_buf}\n{stdout_buf}",
             cli.display(),
-            status.code()
+            status.code(),
+            explain_windows_exit(status)
         ));
     }
 
@@ -269,4 +271,17 @@ pub fn run_node_cli_streaming(
         stdout: stdout_buf,
         stderr: stderr_buf,
     })
+}
+
+/// Map common Windows NTSTATUS exit codes to a short operator hint.
+fn explain_windows_exit(status: ExitStatus) -> String {
+    match status.code() {
+        Some(-1073741510) => {
+            "Recording interrupted (Ctrl+C / process killed). Leave CS2 alone until HLAE finishes, then retry one round.".into()
+        }
+        Some(-1073741819) => {
+            "Process crashed (access violation). Update HLAE in CSDM and verify CS2 files.".into()
+        }
+        _ => String::new(),
+    }
 }

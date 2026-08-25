@@ -228,12 +228,8 @@ export function parseDemo(demoPath, options = {}) {
       const teamSteamIds = playersAliveOnSide(sampleRows, side);
       const deathTick = firstDeathTick(officialDeaths, player.steam_id, round.start_tick, round.end_tick);
       const clipEndTick = deathTick ?? round.end_tick;
-      // Match CSDM bridge: skip first ~10s of freeze / buy time in duration estimates.
-      const freezeSkipTicks = Math.round(10 * tickrate);
-      const clipStartTick = Math.min(
-        round.start_tick + freezeSkipTicks,
-        Math.max(round.start_tick, round.freeze_end_tick),
-      );
+      // Skip freeze/buy — clip starts when the round goes live (matches csdm-bridge default).
+      const clipStartTick = Math.max(round.start_tick, round.freeze_end_tick);
       const endPaddingTicks = Math.round(3 * tickrate);
       const estimatedSeconds =
         tickrate > 0
@@ -251,6 +247,12 @@ export function parseDemo(demoPath, options = {}) {
         winner: round.winner,
       });
       const chapterLabel = formatRoundChapterLabel(round.round_number, highlight);
+
+      const roundUserId =
+        selfRow?.user_id != null && !Number.isNaN(Number(selfRow.user_id))
+          ? Number(selfRow.user_id)
+          : player.user_id ?? null;
+      const roundSlot = roundUserId != null ? roundUserId + 1 : player.slot ?? null;
 
       playerRounds.push({
         steam_id: player.steam_id,
@@ -271,6 +273,8 @@ export function parseDemo(demoPath, options = {}) {
         highlight_weapon: highlight.weapon,
         clutch: highlight.clutch,
         chapter_label: chapterLabel,
+        user_id: roundUserId,
+        spectator_slot: roundSlot,
       });
     }
   }

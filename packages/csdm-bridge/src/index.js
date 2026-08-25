@@ -1,10 +1,11 @@
 export {
   buildCsdmVideoConfig,
+  buildPovSequenceCfg,
   clipStartTick,
   splitConfigPerSequence,
   toCsdmConfigFile,
 } from "./build-config.js";
-export { resolveCsdmExecutable, resolveCsdmLaunch, runCsdmVideo } from "./run-csdm.js";
+export { resolveCsdmExecutable, resolveCsdmLaunch, runCsdmVideo, explainCsdmExitCode } from "./run-csdm.js";
 export {
   ensureSteamRunning,
   findSteamExe,

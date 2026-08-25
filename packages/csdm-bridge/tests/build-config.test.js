@@ -73,22 +73,26 @@ describe("buildCsdmVideoConfig", () => {
     assert.equal(config.sequences.length, 1);
 
     const sequence = config.sequences[0];
-    // 10s skip @ 64 tick = 640; freeze ends at 1600 → start at freeze_end.
+    // Default skipFreezeSeconds=-1 → start at freeze_end (1600).
     assert.equal(sequence.startTick, 1600);
     assert.equal(sequence.endTick, 2692);
     assert.equal(sequence.playerVoicesEnabled, true);
-    assert.deepEqual(sequence.playerCameras, [
-      { tick: 1601, playerSteamId: "111", playerName: "Alpha" },
-    ]);
+    assert.ok(sequence.playerCameras.length >= 1);
+    assert.equal(sequence.playerCameras[0].playerSteamId, "111");
+    assert.equal(sequence.playerCameras[0].tick, 1601);
     assert.equal(sequence.showOnlyDeathNotices, false);
     assert.match(sequence.cfg, /demo_ui_mode 0/);
     assert.match(sequence.cfg, /cl_drawhud 1/);
     assert.match(sequence.cfg, /cl_draw_only_deathnotices 0/);
     assert.match(sequence.cfg, /r_drawviewmodel 1/);
+    assert.match(sequence.cfg, /crosshair 1/);
     assert.match(sequence.cfg, /spec_player 1/);
+    assert.match(sequence.cfg, /spec_autodirector 0/);
     assert.match(sequence.cfg, /cl_radar_square_always 0/);
     assert.match(sequence.cfg, /cl_radar_square_when_spectating 0/);
-
+    // Relock commands keep POV on the player for the whole clip.
+    assert.match(sequence.cfg, /mirv_cmd addAtTick \d+ "spec_player 1"/);
+    assert.ok(!("cfg" in config) || config.cfg == null || config.cfg === undefined);
     const voices = Object.fromEntries(
       sequence.playersOptions.map((opt) => [opt.steamId, opt.isVoiceEnabled]),
     );
@@ -98,14 +102,21 @@ describe("buildCsdmVideoConfig", () => {
     assert.equal(voices["444"], false);
   });
 
-  it("can disable freeze skip", () => {
-    const config = buildCsdmVideoConfig(parsed, {
+  it("defaults to freeze_end and can include buy time with skipFreezeSeconds 0", () => {
+    const atFreeze = buildCsdmVideoConfig(parsed, {
+      steamId: "111",
+      outputFolderPath: "C:\\out",
+      rounds: [1],
+    });
+    assert.equal(atFreeze.sequences[0].startTick, 1600);
+
+    const withBuy = buildCsdmVideoConfig(parsed, {
       steamId: "111",
       outputFolderPath: "C:\\out",
       rounds: [1],
       skipFreezeSeconds: 0,
     });
-    assert.equal(config.sequences[0].startTick, 1000);
+    assert.equal(withBuy.sequences[0].startTick, 1000);
   });
 
   it("follows side switch team roster on later rounds", () => {

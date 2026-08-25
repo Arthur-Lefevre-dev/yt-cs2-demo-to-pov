@@ -95,6 +95,29 @@ export function resolveCsdmExecutable() {
 }
 
 /**
+ * Human-readable hint for common Windows / CSDM exit codes.
+ * @param {number | null | undefined} code
+ */
+export function explainCsdmExitCode(code) {
+  const n = Number(code);
+  // STATUS_CONTROL_C_EXIT (0xC000013A) — process interrupted / killed.
+  if (n === -1073741510 || n === 3221226038) {
+    return (
+      "Recording was interrupted (exit 0xC000013A / Ctrl+C). " +
+        "Do not click CS2, close the window, or press Ctrl+C until HLAE finishes. " +
+        "Keep Steam open and retry one round."
+    );
+  }
+  if (n === -1073741819 || n === 3221225477) {
+    return "CS2/HLAE crashed (access violation). Update HLAE via CSDM, verify CS2 files, retry one round.";
+  }
+  if (n === 1) {
+    return 'If the log says "Steam is not running", open Steam and retry.';
+  }
+  return `csdm exited with code ${code}. Check the log above; retry with a single round.`;
+}
+
+/**
  * Run `csdm analyze` then `csdm video --config-file`.
  * Streams stdout/stderr. Resolves with exit code.
  */
@@ -136,13 +159,11 @@ export function runCsdmVideo({
       if (focusPlayerSteamId) {
         videoArgs.push("--focus-player", String(focusPlayerSteamId));
       }
+      // HUD / demoui / POV lock live in sequence.cfg (avoid fragile CLI --cfg quoting).
 
       const code = await spawnLogged(launch, videoArgs, onLog);
       if (code !== 0) {
-        onLog(
-          "\nHint: if the log says \"Steam is not running\", open Steam, " +
-            "wait until you are logged in, then retry.\n",
-        );
+        onLog(`\n${explainCsdmExitCode(code)}\n`);
       }
       resolve(code);
     } catch (error) {
@@ -183,6 +204,9 @@ function spawnLogged(launch, args, onLog) {
         shell: false,
         windowsHide: false,
         windowsVerbatimArguments: true,
+        stdin: "ignore",
+        // New process group so console Ctrl+C on the Node parent does not abort HLAE mid-record.
+        detached: true,
         env: { ...process.env, ...launch.env },
       });
     } else {
@@ -190,6 +214,8 @@ function spawnLogged(launch, args, onLog) {
       child = spawn(launch.command, fullArgs, {
         shell: false,
         windowsHide: false,
+        stdin: "ignore",
+        detached: true,
         env: { ...process.env, ...launch.env },
       });
     }
